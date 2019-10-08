@@ -8,8 +8,6 @@ import pandas as pd
 import tensorflow as tf
 import numpy as np
 
-from feded.preprocessing import convert_object_columns_to_numeric
-
 DEFAULT_LARC_TARGET_COLNAME = "CRSE_GRD_OFFCL_CD"
 DEFAULT_LARC_FEATURE_COLNAMES = [
     "CLASS_NBR",
@@ -32,27 +30,6 @@ CATEGORIES = {
 NUMERIC_FEATURES = ["CLASS_NBR",
                     "EXCL_CLASS_CUM_GPA",
                     "TERM_CD"]
-
-
-def make_tff_data(df, target_colname=DEFAULT_LARC_TARGET_COLNAME,
-                  feature_colnames=DEFAULT_LARC_FEATURE_COLNAMES):
-    """
-    Convert a pd.DataFrame into a list, where each element holds the data of an individual
-        user as a tf.data.Dataset.
-    """
-
-    # TODO(jpgard): use repeat/shuffle/batch here; currently only generates a single
-    #  iteration
-    #  over dataset.
-    def element_fn(element):
-        x = element[feature_colnames].values
-        y = element[target_colname]
-        return collections.OrderedDict([
-            ('x', tf.reshape(x, [-1])),
-            ('y', tf.reshape(y, [1])),
-        ])
-
-    return [element_fn(element) for i, element in df.iterrows()]
 
 
 def preprocess(dataset):
@@ -109,37 +86,6 @@ def get_numeric_columns(train_file_path):
     return numeric_columns
 
 
-def make_larc_dataset(fp, target_colname=DEFAULT_LARC_TARGET_COLNAME,
-                      feature_colnames=DEFAULT_LARC_FEATURE_COLNAMES):
-    """
-    Fetch LARC CSV from fp and load it as a tf.data.Dataset.
-    :param fp:
-    :return:
-    """
-    # TODO(jpgard): this is deprecated in favor of create_tf_dataset_for_client_fn()
-    #  below. Remove it.
-    colnames_to_keep = feature_colnames + [target_colname]
-    # df = pd.read_csv(fp, usecols=colnames_to_keep)
-    # # apply transformations to convert any object columns to
-    # #  discrete numeric values via pd.Categorical();
-    # #  see https://www.tensorflow.org/tutorials/load_data/pandas_dataframe.
-    # df = convert_object_columns_to_numeric(df)
-    # # target = df.pop(target_colname)
-    # dataset = tf.data.Dataset.from_tensor_slices(df.values)
-    dataset = tf.data.experimental.make_csv_dataset(
-        fp, batch_size=BATCH_SIZE, select_columns=colnames_to_keep,
-        num_epochs=NUM_EPOCHS, shuffle=True, shuffle_buffer_size=SHUFFLE_BUFFER,
-        label_name=target_colname
-    )
-
-    packed_numeric_dataset = dataset.map(PackNumericFeatures(NUMERIC_FEATURES))
-
-    # return make_tff_data(df, target_colname=target_colname,
-    #                      feature_colnames=feature_colnames)
-
-    return packed_numeric_dataset
-
-
 def create_larc_tf_dataset_for_client(client_id, fp,
                                       target_colname=DEFAULT_LARC_TARGET_COLNAME,
                                       feature_colnames=DEFAULT_LARC_FEATURE_COLNAMES):
@@ -156,10 +102,11 @@ def create_larc_tf_dataset_for_client(client_id, fp,
         fp,
         batch_size=1,
         select_columns=colnames_to_keep,
-        # num_epochs=NUM_EPOCHS,
         shuffle=True,
         shuffle_buffer_size=SHUFFLE_BUFFER,
         # enabling this is primarily useful for tf.Estimator API.
         # label_name=target_colname
     )
+    # TODO(jpgard): possibly uncomment below
+    # return dataset.map(PackNumericFeatures(NUMERIC_FEATURES))
     return dataset
