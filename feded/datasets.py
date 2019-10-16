@@ -10,6 +10,7 @@ import numpy as np
 
 DEFAULT_LARC_TARGET_COLNAME = "CRSE_GRD_OFFCL_CD"
 DEFAULT_LARC_FEATURE_COLNAMES = [
+    "CATLG_NBR",
     "CLASS_NBR",
     # "CRSE_GRD_OFFCL_CD",
     "EXCL_CLASS_CUM_GPA",
@@ -27,7 +28,8 @@ CATEGORIES = {
     "GRD_BASIS_ENRL_CD": ["GRD", "NON", "SUS", "OPF", "AUD"]
 }
 
-NUMERIC_FEATURES = ["CLASS_NBR",
+NUMERIC_FEATURES = ["CATLG_NBR",
+                    "CLASS_NBR",
                     "EXCL_CLASS_CUM_GPA",
                     "TERM_CD"]
 
@@ -40,7 +42,7 @@ def preprocess(dataset):
     # 'x' and 'y' are used by keras.
     def element_fn(element):
         return collections.OrderedDict([
-            ('x', tf.reshape(element['CLASS_NBR'], [-1])),
+            ('x', tf.reshape(element['CATLG_NBR'], [1])),
             ('y', tf.reshape(element['EXCL_CLASS_CUM_GPA'], [1])),
         ])
     return dataset.repeat(NUM_EPOCHS).map(element_fn).shuffle(
@@ -88,7 +90,8 @@ def get_numeric_columns(train_file_path):
 
 def create_larc_tf_dataset_for_client(client_id, fp,
                                       target_colname=DEFAULT_LARC_TARGET_COLNAME,
-                                      feature_colnames=DEFAULT_LARC_FEATURE_COLNAMES):
+                                      feature_colnames=DEFAULT_LARC_FEATURE_COLNAMES,
+                                      ):
     """
     A function that takes a client_id from the above list, and returns a tf.data.Dataset.
     See #https://www.tensorflow.org/federated/api_docs/python/tff/simulation/ClientData
@@ -101,6 +104,7 @@ def create_larc_tf_dataset_for_client(client_id, fp,
     dataset = tf.data.experimental.make_csv_dataset(
         fp,
         batch_size=1,
+        num_epochs=NUM_EPOCHS,
         select_columns=colnames_to_keep,
         shuffle=True,
         shuffle_buffer_size=SHUFFLE_BUFFER,
