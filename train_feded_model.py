@@ -12,7 +12,7 @@ from functools import partial
 import tensorflow_federated as tff
 
 NUM_CLIENTS = 3
-EPOCHS = 10
+EPOCHS = 5
 
 # NOTE: If the statement below fails, it means that you are
 # using an older version of TFF without the high-performance
@@ -65,15 +65,16 @@ def main(data_fp):
     example_element = iter(example_dataset).next()
     print(example_element)
     preprocessed_example_dataset = preprocess(example_dataset)
+
     sample_batch = tf.nest.map_structure(
         lambda x: x.numpy(), iter(preprocessed_example_dataset).next())
 
     # TODO(jpgard): After completing a full training run, add more features plus
     #  preprocessing or
     # normalization as required/appropriate, probably to preprocess().
-
+    # import ipdb;ipdb.set_trace()
     def model_fn():
-        keras_model = create_compiled_keras_model() #preprocessing_layer
+        keras_model = create_compiled_keras_model(input_shape=(sample_batch['x'].shape[1],))
         return tff.learning.from_compiled_keras_model(keras_model,
                                                       sample_batch)
 

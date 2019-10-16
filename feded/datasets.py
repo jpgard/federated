@@ -41,8 +41,12 @@ def preprocess(dataset):
     # element_fn extracts feature and label vectors from each element;
     # 'x' and 'y' are used by keras.
     def element_fn(element):
+        # fetch the features as a list of tensors of the same type
+        feature_values = [tf.cast(element[f], tf.float32) for f in NUMERIC_FEATURES]
+        # import ipdb;ipdb.set_trace()
         return collections.OrderedDict([
-            ('x', tf.reshape(element['CATLG_NBR'], [1])),
+            # reshape the features into a single array
+            ('x', tf.reshape(tf.stack(feature_values), [len(feature_values)])),
             ('y', tf.reshape(element['EXCL_CLASS_CUM_GPA'], [1])),
         ])
     return dataset.repeat(NUM_EPOCHS).map(element_fn).shuffle(
