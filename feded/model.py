@@ -7,8 +7,9 @@ def create_compiled_keras_model(input_shape):
     # /federated_learning_for_image_classification
     model = tf.keras.models.Sequential([
         # preprocessing_layer,
-        tf.keras.layers.Dense(10, activation='relu', kernel_initializer='zeros',
-                              input_shape=input_shape),
+        tf.keras.layers.BatchNormalization(center=True, scale=True,
+                                           input_shape=input_shape),
+        tf.keras.layers.Dense(10, activation='relu', kernel_initializer='zeros'),
         tf.keras.layers.Dense(1, activation=None, kernel_initializer='zeros')
     ])
     # compile the model

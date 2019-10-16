@@ -38,6 +38,21 @@ CATEGORICAL_FEATURES = [
     "GRD_BASIS_ENRL_CD"
 ]
 
+def normalize_numeric_data(data, mean, std):
+    # Center the data
+    return (data - mean) / std
+
+
+def get_numeric_columns(train_file_path):
+    desc = pd.read_csv(train_file_path)[NUMERIC_FEATURES].describe()
+    MEAN = np.array(desc.T['mean'])
+    STD = np.array(desc.T['std'])
+    normalizer = functools.partial(normalize_numeric_data, mean=MEAN, std=STD)
+    numeric_column = tf.feature_column.numeric_column(
+        'numeric', normalizer_fn=normalizer, shape=[len(NUMERIC_FEATURES)])
+    numeric_columns = [numeric_column]
+    return numeric_columns
+
 
 def make_feature_layer():
     """
@@ -75,32 +90,6 @@ def preprocess(dataset):
         ])
     return dataset.repeat(NUM_EPOCHS).map(element_fn).shuffle(
         SHUFFLE_BUFFER).batch(BATCH_SIZE)
-
-
-def get_categorical_columns(categories=CATEGORIES):
-    #TODO(jpgard): should this only contain input features?
-    categorical_columns = []
-    for feature, vocab in categories.items():
-        cat_col = tf.feature_column.categorical_column_with_vocabulary_list(
-            key=feature, vocabulary_list=vocab)
-        categorical_columns.append(tf.feature_column.indicator_column(cat_col))
-    return categorical_columns
-
-
-def normalize_numeric_data(data, mean, std):
-    # Center the data
-    return (data - mean) / std
-
-
-def get_numeric_columns(train_file_path):
-    desc = pd.read_csv(train_file_path)[NUMERIC_FEATURES].describe()
-    MEAN = np.array(desc.T['mean'])
-    STD = np.array(desc.T['std'])
-    normalizer = functools.partial(normalize_numeric_data, mean=MEAN, std=STD)
-    numeric_column = tf.feature_column.numeric_column(
-        'numeric', normalizer_fn=normalizer, shape=[len(NUMERIC_FEATURES)])
-    numeric_columns = [numeric_column]
-    return numeric_columns
 
 
 def create_larc_tf_dataset_for_client(client_id, fp,
