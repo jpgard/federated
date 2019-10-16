@@ -34,12 +34,6 @@ def show_batch(dataset):
             print("{:20s}: {}".format(key, value.numpy()))
 
 
-def pack(features, label):
-    # pack together all columns into a single feature vector
-    # https://www.tensorflow.org/tutorials/load_data/csv
-    return tf.stack(list(features.values()), axis=-1), label
-
-
 def make_federated_data(client_data, client_ids):
     return [preprocess(client_data.create_tf_dataset_for_client(x))
             for x in client_ids]
@@ -47,7 +41,6 @@ def make_federated_data(client_data, client_ids):
 
 def main(data_fp):
     # # fetch and preprocess the data
-
     create_tf_dataset_for_client_fn = partial(create_larc_tf_dataset_for_client,
                                               fp=data_fp)
     feded_train = tff.simulation.ClientData.from_clients_and_fn(
@@ -70,9 +63,10 @@ def main(data_fp):
         lambda x: x.numpy(), iter(preprocessed_example_dataset).next())
 
     # TODO(jpgard): After completing a full training run, add more features plus
-    #  preprocessing or
-    # normalization as required/appropriate, probably to preprocess().
-    # import ipdb;ipdb.set_trace()
+    #  preprocessing or normalization as required/appropriate, probably to preprocess().
+    # Specifically, this should include use of FeatureColumns and multiple feature types
+    # (categorical, int, etc).
+
     def model_fn():
         keras_model = create_compiled_keras_model(input_shape=(sample_batch['x'].shape[1],))
         return tff.learning.from_compiled_keras_model(keras_model,

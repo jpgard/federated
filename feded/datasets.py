@@ -23,8 +23,8 @@ BATCH_SIZE = 20
 SHUFFLE_BUFFER = 50
 
 CATEGORIES = {
-    # "CRSE_GRD_OFFCL_CD": ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-",
-    #                       "D+", "D", "D-", "E", "F"],
+    "CRSE_GRD_OFFCL_CD": ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-",
+                          "D+", "D", "D-", "E", "F"],
     "GRD_BASIS_ENRL_CD": ["GRD", "NON", "SUS", "OPF", "AUD"]
 }
 
@@ -33,6 +33,29 @@ NUMERIC_FEATURES = ["CATLG_NBR",
                     "EXCL_CLASS_CUM_GPA",
                     "TERM_CD"]
 
+CATEGORICAL_FEATURES = [
+    "CRSE_GRD_OFFCL_CD",
+    "GRD_BASIS_ENRL_CD"
+]
+
+
+def make_feature_layer():
+    """
+    Utility function to assemble a feature layer; this builds a single dense feature
+    from a list of feature columns.
+    :return: a tf.keras.layers.DenseFeatures layer.
+    """
+    fco_catlg = tf.feature_column.numeric_column("CATLG_NBR")
+    fco_class = tf.feature_column.numeric_column("CLASS_NBR")
+    fco_term = tf.feature_column.numeric_column("TERM_CD")
+    fco = tf.feature_column.categorical_column_with_vocabulary_list(
+        "CRSE_GRD_OFFCL_CD", CATEGORIES["CRSE_GRD_OFFCL_CD"])
+    # one-hot encode the FeatureColumn and then compute it as a dense feature
+    fco_ohe = tf.feature_column.indicator_column(fco)
+    feature_columns = [fco_catlg, fco_class, fco_term, fco_ohe]
+    feature_layer = tf.keras.layers.DenseFeatures(feature_columns)
+    return feature_layer
+
 
 def preprocess(dataset):
     # TODO(jpgard): build a proper feature vector from multiple input
@@ -40,13 +63,14 @@ def preprocess(dataset):
 
     # element_fn extracts feature and label vectors from each element;
     # 'x' and 'y' are used by keras.
+    feature_layer = make_feature_layer()
+
     def element_fn(element):
-        # fetch the features as a list of tensors of the same type
-        feature_values = [tf.cast(element[f], tf.float32) for f in NUMERIC_FEATURES]
-        # import ipdb;ipdb.set_trace()
+
+        feature_vector = feature_layer(element)
+
         return collections.OrderedDict([
-            # reshape the features into a single array
-            ('x', tf.reshape(tf.stack(feature_values), [len(feature_values)])),
+            ('x', tf.reshape(feature_vector, [feature_vector.shape[1]])),
             ('y', tf.reshape(element['EXCL_CLASS_CUM_GPA'], [1])),
         ])
     return dataset.repeat(NUM_EPOCHS).map(element_fn).shuffle(
@@ -61,19 +85,6 @@ def get_categorical_columns(categories=CATEGORIES):
             key=feature, vocabulary_list=vocab)
         categorical_columns.append(tf.feature_column.indicator_column(cat_col))
     return categorical_columns
-
-
-class PackNumericFeatures(object):
-    def __init__(self, names):
-        self.names = names
-
-    def __call__(self, features, labels):
-        numeric_freatures = [features.pop(name) for name in self.names]
-        numeric_features = [tf.cast(feat, tf.float32) for feat in numeric_freatures]
-        numeric_features = tf.stack(numeric_features, axis=-1)
-        features['numeric'] = numeric_features
-
-        return features, labels
 
 
 def normalize_numeric_data(data, mean, std):
