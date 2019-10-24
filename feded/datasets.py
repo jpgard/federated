@@ -90,7 +90,7 @@ def preprocess(dataset):
         SHUFFLE_BUFFER).batch(BATCH_SIZE)
 
 
-def create_larc_tf_dataset_for_client(client_id, fp,
+def create_larc_tf_dataset_for_client(client_id, fp, client_id_col=None,
                                       target_colname=DEFAULT_LARC_TARGET_COLNAME,
                                       feature_colnames=DEFAULT_LARC_FEATURE_COLNAMES,
                                       ):
@@ -103,12 +103,26 @@ def create_larc_tf_dataset_for_client(client_id, fp,
     # TODO(jpgard): take action based on client id; currently just returns the entire
     #  dataset contained in the csv.
     colnames_to_keep = feature_colnames + [target_colname]
-    dataset = tf.data.experimental.make_csv_dataset(
-        fp,
-        batch_size=1,
-        num_epochs=NUM_EPOCHS,
-        select_columns=colnames_to_keep,
-        shuffle=True,
-        shuffle_buffer_size=SHUFFLE_BUFFER,
-    )
+    # use of tf.data.experimental.make_csv_dataset; this should only be used when the
+    # entire CSV file represents a single clients' data).
+
+    # dataset = tf.data.experimental.make_csv_dataset(
+    #     fp,
+    #     batch_size=1,
+    #     num_epochs=NUM_EPOCHS,
+    #     select_columns=colnames_to_keep,
+    #     shuffle=True,
+    #     shuffle_buffer_size=SHUFFLE_BUFFER,
+    #     na_value=''
+    # )
+
+
+    df = pd.read_csv(fp, usecols=colnames_to_keep, na_values=('', ' '),
+                     keep_default_na=True)
+    # TODO(jpgard): handle NA values instead of dropping incomplete cases; for some
+    # features (e.g. categorical features) we should generate an indicator for
+    # missingness; for missing numeric features these will likely need to be dropped.
+    df.dropna(inplace=True)
+    dataset = tf.data.Dataset.from_tensor_slices(df.to_dict('list'))
+    dataset = dataset.shuffle(SHUFFLE_BUFFER).batch(1).repeat(NUM_EPOCHS)
     return dataset
