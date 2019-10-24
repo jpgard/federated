@@ -26,14 +26,6 @@ from feded.datasets import preprocess, create_larc_tf_dataset_for_client, NUM_EP
 from feded.model import create_compiled_keras_model
 
 
-def show_batch(dataset):
-    # a utility function for debugging
-    # via https://www.tensorflow.org/tutorials/load_data/csv
-    for batch, label in dataset.take(1):
-        for key, value in batch.items():
-            print("{:20s}: {}".format(key, value.numpy()))
-
-
 def make_federated_data(client_data, client_ids):
     return [preprocess(client_data.create_tf_dataset_for_client(x))
             for x in client_ids]
