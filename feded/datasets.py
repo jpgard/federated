@@ -73,14 +73,12 @@ def make_feature_layer():
 
 
 def preprocess(dataset):
-    # TODO(jpgard): build a proper feature vector from multiple input
-    # features and with the correct target, transformed to numeric.
 
-    # element_fn extracts feature and label vectors from each element;
-    # 'x' and 'y' are used by keras.
     feature_layer = make_feature_layer()
 
     def element_fn(element):
+        # element_fn extracts feature and label vectors from each element;
+        # 'x' and 'y' names are required by keras.
 
         feature_vector = feature_layer(element)
 
@@ -112,9 +110,5 @@ def create_larc_tf_dataset_for_client(client_id, fp,
         select_columns=colnames_to_keep,
         shuffle=True,
         shuffle_buffer_size=SHUFFLE_BUFFER,
-        # enabling this is primarily useful for tf.Estimator API.
-        # label_name=target_colname
     )
-    # TODO(jpgard): possibly uncomment below
-    # return dataset.map(PackNumericFeatures(NUMERIC_FEATURES))
     return dataset
