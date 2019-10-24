@@ -3,6 +3,7 @@ Train a FedEd model.
 """
 import argparse
 import six
+import pandas as pd
 import tensorflow as tf
 
 from functools import partial
@@ -20,7 +21,8 @@ if six.PY3:
   tff.framework.set_default_executor(
       tff.framework.create_local_executor(NUM_CLIENTS))
 
-from feded.datasets import preprocess, create_larc_tf_dataset_for_client, NUM_EPOCHS
+from feded.datasets import preprocess, create_larc_tf_dataset_for_client, NUM_EPOCHS, \
+    DEFAULT_LARC_CLIENT_COLNAME
 from feded.model import create_compiled_keras_model
 
 
@@ -41,17 +43,25 @@ def main(data_fp):
     # # fetch and preprocess the data
     create_tf_dataset_for_client_fn = partial(create_larc_tf_dataset_for_client,
                                               fp=data_fp)
+    # TODO(jpgard): move this into a function that fetches client ids; optionally
+    #  should apply some sort of threshold t, only returning data from clients with
+    #  count(client) >= t
+    # client_ids = pd.read_csv(data_fp,
+    #     usecols=[DEFAULT_LARC_CLIENT_COLNAME])[
+    #     #     DEFAULT_LARC_CLIENT_COLNAME].unique()
+    client_ids = ["ECON", "MATH", "ENGLISH", "MATSCIE"]
     feded_train = tff.simulation.ClientData.from_clients_and_fn(
-        client_ids=["1", "2", "3"],
+        client_ids=client_ids,
         create_tf_dataset_for_client_fn=create_tf_dataset_for_client_fn
     )
     feded_test = tff.simulation.ClientData.from_clients_and_fn(
-        client_ids=["1", "2", "3"],
+        client_ids=client_ids,
         create_tf_dataset_for_client_fn=create_tf_dataset_for_client_fn
     )
 
     example_dataset = feded_train.create_tf_dataset_for_client(
-        feded_train.client_ids[0])
+        feded_train.client_ids[0]
+    )
 
     example_element = iter(example_dataset).next()
     print(example_element)
@@ -77,7 +87,6 @@ def main(data_fp):
     for i in range(NUM_EPOCHS):
         state, metrics = iterative_process.next(state, federated_train_data)
         print('round  {}, metrics={}'.format(i, metrics))
-
 
 
 if __name__ == "__main__":
