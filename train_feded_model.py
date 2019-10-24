@@ -7,8 +7,6 @@ import tensorflow as tf
 
 from functools import partial
 
-# tf.compat.v1.enable_v2_behavior()
-
 import tensorflow_federated as tff
 
 NUM_CLIENTS = 3
@@ -61,11 +59,6 @@ def main(data_fp):
 
     sample_batch = tf.nest.map_structure(
         lambda x: x.numpy(), iter(preprocessed_example_dataset).next())
-
-    # TODO(jpgard): After completing a full training run, add more features plus
-    #  preprocessing or normalization as required/appropriate, probably to preprocess().
-    # Specifically, this should include use of FeatureColumns and multiple feature types
-    # (categorical, int, etc).
 
     def model_fn():
         keras_model = create_compiled_keras_model(input_shape=(sample_batch['x'].shape[1],))
