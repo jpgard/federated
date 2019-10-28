@@ -55,8 +55,8 @@ def main(data_fp):
         feded_train.client_ids[0]
     )
 
-    example_element = iter(example_dataset).next()
-    print(example_element)
+    # example_element = iter(example_dataset).next()
+    # print(example_element)
     preprocessed_example_dataset = preprocess(example_dataset)
 
     sample_batch = tf.nest.map_structure(
