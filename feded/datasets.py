@@ -24,14 +24,14 @@ DEFAULT_LARC_FEATURE_COLNAMES = [
     "CATLG_NBR",
     "CLASS_NBR",
     "EXCL_CLASS_CUM_GPA",
-    # "SBJCT_CD",
     "GRD_BASIS_ENRL_CD",
     "TERM_CD",
 ]
 
 # explicitly specify the categorical features and the values they can take
 # TODO(jpgard): create a function which reads these directly from the data for a list
-#  of specified categorical feature names.
+#  of specified categorical feature names; or even better, implement these as part of
+#  an object representing the dataset.
 CATEGORICAL_FEATURE_VALUES = {
     "CRSE_GRD_OFFCL_CD": ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-",
                           "D+", "D", "D-", "E", "F"],
@@ -39,6 +39,11 @@ CATEGORICAL_FEATURE_VALUES = {
 }
 
 # explicitly specify the numeric features
+# TODO(jpgard): create a function which reads these directly from the data for a list
+#  of specified feature names; or even better, implement these as part of an object
+#  representing the dataset.
+# TODO(jpgard): several of these should be categorical or ordinal features,
+#  NOT numeric, as they are really just numeric identifiers for categorical features.
 NUMERIC_FEATURES = ["CATLG_NBR",
                     "CLASS_NBR",
                     "EXCL_CLASS_CUM_GPA",
