@@ -8,6 +8,9 @@ import pandas as pd
 import tensorflow as tf
 import numpy as np
 
+from abc import ABC, abstractmethod
+from typing import Optional, Tuple, List
+
 # the prediction target
 DEFAULT_LARC_TARGET_COLNAME = "CRSE_GRD_OFFCL_CD"
 
@@ -18,7 +21,7 @@ DEFAULT_LARC_CLIENT_COLNAME = "SBJCT_CD"
 
 # the features to use by default; adding to these may also require implementing
 # relevant preprocessing for the feature columns, e.g. by modifying
-# CATEGORICAL_FEATURE_VALUES or adding to NUMERIC_FEATURES below and updating
+# CATEGORICAL_FEATURE_VALUES or adding to DEFAULT_LARC_NUMERIC_FEATURES below and updating
 # make_feature_layer() accordingly.
 DEFAULT_LARC_FEATURE_COLNAMES = [
     "CATLG_NBR",
@@ -44,15 +47,19 @@ CATEGORICAL_FEATURE_VALUES = {
 #  representing the dataset.
 # TODO(jpgard): several of these should be categorical or ordinal features,
 #  NOT numeric, as they are really just numeric identifiers for categorical features.
-NUMERIC_FEATURES = ["CATLG_NBR",
+DEFAULT_LARC_NUMERIC_FEATURES = ["CATLG_NBR",
                     "CLASS_NBR",
                     "EXCL_CLASS_CUM_GPA",
                     "TERM_CD"]
 
+DEFAULT_LARC_EMBEDDING_FEATURES = []
+
 # default training parameters
-NUM_EPOCHS = 10
+# TODO(jpgard): increase these later
 BATCH_SIZE = 20
-SHUFFLE_BUFFER = 50
+NUM_EPOCHS = 50
+SHUFFLE_BUFFER = 10
+BATCH_SIZE = 8
 
 def normalize_numeric_data(data, mean, std):
     """Center the data."""
@@ -60,12 +67,13 @@ def normalize_numeric_data(data, mean, std):
 
 
 def get_numeric_columns(train_file_path):
-    desc = pd.read_csv(train_file_path)[NUMERIC_FEATURES].describe()
+    desc = pd.read_csv(train_file_path)[DEFAULT_LARC_NUMERIC_FEATURES].describe()
     sample_mean = np.array(desc.T['mean'])
     sample_std = np.array(desc.T['std'])
-    normalizer = functools.partial(normalize_numeric_data, mean=sample_mean, std=sample_std)
+    normalizer = functools.partial(normalize_numeric_data, mean=sample_mean,
+                                   std=sample_std)
     numeric_column = tf.feature_column.numeric_column(
-        'numeric', normalizer_fn=normalizer, shape=[len(NUMERIC_FEATURES)])
+        'numeric', normalizer_fn=normalizer, shape=[len(DEFAULT_LARC_NUMERIC_FEATURES)])
     numeric_columns = [numeric_column]
     return numeric_columns
 
@@ -89,7 +97,6 @@ def make_feature_layer():
 
 
 def preprocess(dataset):
-
     feature_layer = make_feature_layer()
 
     def element_fn(element):
@@ -102,49 +109,80 @@ def preprocess(dataset):
             ('x', tf.reshape(feature_vector, [feature_vector.shape[1]])),
             ('y', tf.reshape(element['EXCL_CLASS_CUM_GPA'], [1])),
         ])
+
     return dataset.repeat(NUM_EPOCHS).map(element_fn).shuffle(
         SHUFFLE_BUFFER).batch(BATCH_SIZE)
 
 
-def create_larc_tf_dataset_for_client(client_id, fp,
-                                      client_id_col=DEFAULT_LARC_CLIENT_COLNAME,
-                                      target_colname=DEFAULT_LARC_TARGET_COLNAME,
-                                      feature_colnames=DEFAULT_LARC_FEATURE_COLNAMES,
-                                      ):
-    """
-    Generate a a tf.data.Dataset from the file at fp for the specified client_id.
-    See #https://www.tensorflow.org/federated/api_docs/python/tff/simulation/ClientData
-    :param client_id:
-    :return:
-    """
-    colnames_to_keep = feature_colnames + [target_colname] + [client_id_col]
-    # use of tf.data.experimental.make_csv_dataset; this should only be used when the
-    # entire CSV file represents a single clients' data).
+class TabularDataset(ABC):
+    """A class to represent tabular datasets."""
+    def __init__(self, client_id_col: str,
+                 num_epochs: int = NUM_EPOCHS,
+                 shuffle_buffer: int = SHUFFLE_BUFFER,
+                 categorical_columns: Optional[List[str]] = None,
+                 embedding_columns: Optional[List[str]] = None,
+                 numeric_columns: Optional[List[str]] = None,
+                 ):
+        self.client_id_col = client_id_col
+        self.categorical_columns = categorical_columns
+        self.embedding_columns = embedding_columns
+        self.numeric_columns = numeric_columns
+        self.df = None
+        self.num_epochs = num_epochs
+        self.shuffle_buffer = shuffle_buffer
 
-    # dataset = tf.data.experimental.make_csv_dataset(
-    #     fp,
-    #     batch_size=1,
-    #     num_epochs=NUM_EPOCHS,
-    #     select_columns=colnames_to_keep,
-    #     shuffle=True,
-    #     shuffle_buffer_size=SHUFFLE_BUFFER,
-    #     na_value=''
-    # )
+    @property
+    def feature_column_names(self):
+        """The name of all feature columns; excluding the client_id column."""
+        return self.categorical_columns + self.embedding_columns + self.numeric_columns
 
-    df = pd.read_csv(fp, usecols=colnames_to_keep, na_values=('', ' '),
-                     keep_default_na=True)
-    # filter the dataset by client_id, then keep only the feature and target colnames
-    df = df[df[client_id_col] == client_id]
-    if client_id_col not in feature_colnames:
-        df.drop(columns=client_id_col, inplace=True)
-    if len(df):
-        # TODO(jpgard): handle NA values instead of dropping incomplete cases; for some
-        # features (e.g. categorical features) we should generate an indicator for
-        # missingness; for missing numeric features these will likely need to be dropped.
-        df.dropna(inplace=True)
-        dataset = tf.data.Dataset.from_tensor_slices(df.to_dict('list'))
-        dataset = dataset.shuffle(SHUFFLE_BUFFER).batch(1).repeat(NUM_EPOCHS)
-        return dataset
-    else:
-        print("[WARNING] no data for specified client_id {}".format(client_id))
-        return None
+    @abstractmethod
+    def read_data(self, fp):
+        raise  # this line should never be reached
+
+    @abstractmethod
+    def create_tf_dataset_for_client(self, client_id):
+        """"Creates a tf.Dataset for the given client id."""
+        raise  # this line should never be reached
+
+
+class LarcDataset(TabularDataset):
+    """A class to represent the LARC dataset."""
+    def __init__(self, client_id_col: str = DEFAULT_LARC_CLIENT_COLNAME,
+                 num_epochs: int = NUM_EPOCHS,
+                 shuffle_buffer: int = SHUFFLE_BUFFER,
+                 categorical_columns: List[str] = list(CATEGORICAL_FEATURE_VALUES.keys()),
+                 embedding_columns: List[str] = DEFAULT_LARC_EMBEDDING_FEATURES,
+                 numeric_columns: List[str] = DEFAULT_LARC_NUMERIC_FEATURES,
+                 ):
+        super(LarcDataset, self).__init__(client_id_col=client_id_col,
+                                          categorical_columns=categorical_columns,
+                                          embedding_columns=embedding_columns,
+                                          numeric_columns=numeric_columns,
+                                          num_epochs=num_epochs,
+                                          shuffle_buffer=shuffle_buffer
+                                          )
+
+    def read_data(self, fp):
+        colnames_to_keep = [self.client_id_col] + self.feature_column_names
+        self.df = pd.read_csv(fp, usecols=colnames_to_keep, na_values=('', ' '),
+                              keep_default_na=True)
+        return
+
+    def create_tf_dataset_for_client(self, client_id):
+        # filter the dataset by client_id, keeping only the feature and target colnames
+        df = self.df[self.df[self.client_id_col] == client_id][self.feature_column_names]
+        if len(df):
+            # TODO(jpgard): handle NA values instead of dropping incomplete cases; for
+            #  some
+            # features (e.g. categorical features) we can generate an indicator for
+            # missingness; for missing numeric features these will likely need to be
+            # dropped.
+            df.dropna(inplace=True)
+            dataset = tf.data.Dataset.from_tensor_slices(df.to_dict('list'))
+            dataset = dataset.shuffle(self.shuffle_buffer).batch(1).repeat(
+                self.num_epochs)
+            return dataset
+        else:
+            print("[WARNING] no data for specified client_id {}".format(client_id))
+            return None

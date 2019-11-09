@@ -5,6 +5,7 @@ import tensorflow as tf
 def create_compiled_keras_model(input_shape):
     # https://www.tensorflow.org/federated/tutorials
     # /federated_learning_for_image_classification
+
     model = tf.keras.models.Sequential([
         # preprocessing_layer,
         tf.keras.layers.BatchNormalization(center=True, scale=True,

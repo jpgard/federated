@@ -11,7 +11,6 @@ from functools import partial
 import tensorflow_federated as tff
 
 NUM_CLIENTS = 3
-EPOCHS = 5
 
 # NOTE: If the statement below fails, it means that you are
 # using an older version of TFF without the high-performance
@@ -21,8 +20,7 @@ if six.PY3:
   tff.framework.set_default_executor(
       tff.framework.create_local_executor(NUM_CLIENTS))
 
-from feded.datasets import preprocess, create_larc_tf_dataset_for_client, NUM_EPOCHS, \
-    DEFAULT_LARC_CLIENT_COLNAME
+from feded.datasets import preprocess, LarcDataset, NUM_EPOCHS
 from feded.model import create_compiled_keras_model
 
 
@@ -33,8 +31,9 @@ def make_federated_data(client_data, client_ids):
 
 def main(data_fp):
     # # fetch and preprocess the data
-    create_tf_dataset_for_client_fn = partial(create_larc_tf_dataset_for_client,
-                                              fp=data_fp)
+    dataset = LarcDataset()
+    dataset.read_data(data_fp)
+    create_tf_dataset_for_client_fn = lambda x: dataset.create_tf_dataset_for_client(x)
     # TODO(jpgard): move this into a function that fetches client ids; optionally
     #  should apply some sort of threshold t, only returning data from clients with
     #  count(client) >= t
@@ -54,6 +53,7 @@ def main(data_fp):
     example_dataset = feded_train.create_tf_dataset_for_client(
         feded_train.client_ids[0]
     )
+
 
     # example_element = iter(example_dataset).next()
     # print(example_element)
