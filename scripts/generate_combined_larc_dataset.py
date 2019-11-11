@@ -12,13 +12,13 @@ python scripts/generate_combined_larc_dataset.py \
     --stdnt_term_trnsfr_info_fp data/larc-mock/STDNT_TERM_TRNSFR_INFO.csv \
     --outdir data/larc-mock/
 
-# full LARC dataset
+# full LARC dataset (excluding transfer table)
 python scripts/generate_combined_larc_dataset.py \
     --stdnt_info_fp data/LARC/LARC_20190924_STDNT_INFO.csv \
     --stdnt_term_class_info_fp data/LARC/LARC_20190924_STDNT_TERM_CLASS_INFO.csv \
     --stdnt_term_info_fp data/LARC/LARC_20190924_STDNT_TERM_INFO.csv \
-    --stdnt_term_trnsfr_info_fp data/LARC/LARC_20190924_STDNT_TERM_TRNSFR_INFO.csv \
-    --outdir data/larc-split/
+    --outdir data/larc-split/ \
+    --generate_ttv
 """
 
 import pandas as pd
@@ -52,7 +52,7 @@ def main(stdnt_info_fp,
          generate_ttv=False
          ):
     """
-
+    Generate a combined dataset by merging the CSV files along the correct indices.
     :param stdnt_info_fp:
     :param stdnt_term_class_info_fp:
     :param stdnt_term_info_fp:
@@ -93,18 +93,16 @@ def main(stdnt_info_fp,
         print("[INFO] reading {}".format(prsn_identifying_info_fp))
         # for this table, we rename column PRSN_ID before setting the index
         prsn_identifying_info = pd.read_csv(
-            prsn_identifying_info_fp, **read_csv_args).rename(
+            prsn_identifying_info_fp, index_col=["SNPSHT_RPT_DT", "STDNT_ID"],
+            **read_csv_args).rename(
             columns={"PRSN_ID": "STDNT_ID"}) \
-            .astype({"STDNT_ID": "int64"}) \
-            .set_index(["SNPSHT_RPT_DT", "STDNT_ID"])
+            .astype({"STDNT_ID": "int64"})
 
         larc = larc.join(prsn_identifying_info, how="left", on=("SNPSHT_RPT_DT",
                                                                 "STDNT_ID"))
     if stdnt_term_trnsfr_info_fp:
-        print("[INFO] reading {}".format(stdnt_term_trnsfr_info_fp))
-        stdnt_term_trnsfr_info = pd.read_csv(stdnt_term_trnsfr_info_fp, **read_csv_args)
-        larc = larc.join(stdnt_term_trnsfr_info, how="left", on=("SNPSHT_RPT_DT",
-                                                                 "STDNT_ID", "TERM_CD"))
+        print("[ERROR] transfer data join not implemented")
+        raise NotImplementedError
     larc.reset_index(inplace=True)
     # ensure no data is lost or duplicated in joins
     assert len(larc) == len(stdnt_term_class_info)
@@ -141,7 +139,7 @@ if __name__ == "__main__":
     parser.add_argument("--stdnt_term_info_fp", help="student term info csv")
     parser.add_argument("--stdnt_term_trnsfr_info_fp", help="student term transfer csv",
                         required=False)  # currently unused
-    parser.add_argument("--generate_ttv", type=bool, default=False)
     parser.add_argument("--outdir", help="directory to write dataset to")
+    parser.add_argument("--generate_ttv", action="store_true", default=False)
     args = parser.parse_args()
     main(**vars(args))
