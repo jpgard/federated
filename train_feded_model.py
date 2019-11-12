@@ -17,15 +17,15 @@ NUM_CLIENTS = 3
 # executor stack. Call `tff.framework.set_default_executor()`
 # instead to use the default reference runtime.
 if six.PY3:
-  tff.framework.set_default_executor(
-      tff.framework.create_local_executor(NUM_CLIENTS))
+    tff.framework.set_default_executor(
+        tff.framework.create_local_executor(NUM_CLIENTS))
 
 from feded.datasets import preprocess, LarcDataset, NUM_EPOCHS
 from feded.model import create_compiled_keras_model
 
 
-def make_federated_data(client_data, client_ids):
-    return [preprocess(client_data.create_tf_dataset_for_client(x))
+def make_federated_data(client_data, client_ids, feature_layer):
+    return [preprocess(client_data.create_tf_dataset_for_client(x), feature_layer)
             for x in client_ids]
 
 
@@ -34,6 +34,8 @@ def main(data_fp):
     dataset = LarcDataset()
     dataset.read_data(data_fp)
     create_tf_dataset_for_client_fn = lambda x: dataset.create_tf_dataset_for_client(x)
+    feature_layer = dataset.make_feature_layer()
+
     # TODO(jpgard): move this into a function that fetches client ids; optionally
     #  should apply some sort of threshold t, only returning data from clients with
     #  count(client) >= t
@@ -54,16 +56,16 @@ def main(data_fp):
         feded_train.client_ids[0]
     )
 
-
     # example_element = iter(example_dataset).next()
     # print(example_element)
-    preprocessed_example_dataset = preprocess(example_dataset)
+    preprocessed_example_dataset = preprocess(example_dataset, feature_layer)
 
     sample_batch = tf.nest.map_structure(
         lambda x: x.numpy(), iter(preprocessed_example_dataset).next())
 
     def model_fn():
-        keras_model = create_compiled_keras_model(input_shape=(sample_batch['x'].shape[1],))
+        keras_model = create_compiled_keras_model(
+            input_shape=(sample_batch['x'].shape[1],))
         return tff.learning.from_compiled_keras_model(keras_model,
                                                       sample_batch)
 
@@ -74,7 +76,8 @@ def main(data_fp):
 
     # fetch the federated training data and execute an iteration of training
     train_client_ids = feded_train.client_ids[:NUM_CLIENTS]
-    federated_train_data = make_federated_data(feded_train, train_client_ids)
+    federated_train_data = make_federated_data(feded_train, train_client_ids,
+                                               feature_layer)
 
     for i in range(NUM_EPOCHS):
         state, metrics = iterative_process.next(state, federated_train_data)

@@ -9,6 +9,7 @@ import tensorflow as tf
 import numpy as np
 
 from abc import ABC, abstractmethod
+from feded.preprocessing import generate_categorical_feature_dict
 from typing import Optional, Tuple, List
 
 # the prediction target
@@ -23,11 +24,17 @@ DEFAULT_LARC_CLIENT_COLNAME = "SBJCT_CD"
 # TODO(jpgard): create a function which reads these directly from the data for a list
 #  of specified categorical feature names; or even better, implement these as part of
 #  an object representing the dataset.
-CATEGORICAL_FEATURE_VALUES = {
-    "CRSE_GRD_OFFCL_CD": ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-",
-                          "D+", "D", "D-", "E", "F"],
-    "GRD_BASIS_ENRL_CD": ["GRD", "NON", "SUS", "OPF", "AUD"]
-}
+DEFAULT_LARC_CATEGORICAL_FEATURES = [
+    "CRSE_GRD_OFFCL_CD",
+    "GRD_BASIS_ENRL_CD"
+
+]
+
+# CATEGORICAL_FEATURE_VALUES = {
+#     "CRSE_GRD_OFFCL_CD": ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-",
+#                           "D+", "D", "D-", "E", "F"],
+#     "GRD_BASIS_ENRL_CD": ["GRD", "NON", "SUS", "OPF", "AUD"]
+# }
 
 # explicitly specify the numeric features
 # TODO(jpgard): create a function which reads these directly from the data for a list
@@ -67,26 +74,7 @@ def get_numeric_columns(train_file_path):
     return numeric_columns
 
 
-def make_feature_layer():
-    """
-    Utility function to assemble a feature layer; this builds a single dense feature
-    from a list of feature columns.
-    :return: a tf.keras.layers.DenseFeatures layer.
-    """
-    fco_catlg = tf.feature_column.numeric_column("CATLG_NBR")
-    fco_class = tf.feature_column.numeric_column("CLASS_NBR")
-    fco_term = tf.feature_column.numeric_column("TERM_CD")
-    fco = tf.feature_column.categorical_column_with_vocabulary_list(
-        "CRSE_GRD_OFFCL_CD", CATEGORICAL_FEATURE_VALUES["CRSE_GRD_OFFCL_CD"])
-    # one-hot encode the FeatureColumn and then compute it as a dense feature
-    fco_ohe = tf.feature_column.indicator_column(fco)
-    feature_columns = [fco_catlg, fco_class, fco_term, fco_ohe]
-    feature_layer = tf.keras.layers.DenseFeatures(feature_columns)
-    return feature_layer
-
-
-def preprocess(dataset):
-    feature_layer = make_feature_layer()
+def preprocess(dataset, feature_layer):
 
     def element_fn(element):
         # element_fn extracts feature and label vectors from each element;
@@ -135,6 +123,11 @@ class TabularDataset(ABC):
         """"Creates a tf.Dataset for the given client id."""
         raise  # this line should never be reached
 
+    @abstractmethod
+    def make_feature_layer(self):
+        """Create a keras.DenseFeatures layer."""
+        raise
+
 
 class LarcDataset(TabularDataset):
     """A class to represent the LARC dataset."""
@@ -142,7 +135,7 @@ class LarcDataset(TabularDataset):
     def __init__(self, client_id_col: str = DEFAULT_LARC_CLIENT_COLNAME,
                  num_epochs: int = NUM_EPOCHS,
                  shuffle_buffer: int = SHUFFLE_BUFFER,
-                 categorical_columns: List[str] = list(CATEGORICAL_FEATURE_VALUES.keys()),
+                 categorical_columns: List[str] = DEFAULT_LARC_CATEGORICAL_FEATURES,
                  embedding_columns: List[str] = DEFAULT_LARC_EMBEDDING_FEATURES,
                  numeric_columns: List[str] = DEFAULT_LARC_NUMERIC_FEATURES,
                  ):
@@ -177,3 +170,25 @@ class LarcDataset(TabularDataset):
         else:
             print("[WARNING] no data for specified client_id {}".format(client_id))
             return None
+
+    def make_feature_layer(self):
+        """
+        Utility function to assemble a feature layer; this builds a single dense feature
+        from a list of feature columns.
+        :return: a tf.keras.layers.DenseFeatures layer.
+        """
+        categorical_feature_values = generate_categorical_feature_dict(
+            self.df, self.categorical_columns)
+        # generate a list of feature columns
+        feature_columns = list()
+        for nc in self.numeric_columns:
+            feature_columns.append(tf.feature_column.numeric_column(nc))
+        for cc in self.categorical_columns:
+            # create one-hot encoded columns for each categorical column
+            fco = tf.feature_column.categorical_column_with_vocabulary_list(
+                    cc, categorical_feature_values[cc])
+            fco_ohe = tf.feature_column.indicator_column(fco)
+            feature_columns.append(fco_ohe)
+        # TODO(jpgard): embedding columns here
+        feature_layer = tf.keras.layers.DenseFeatures(feature_columns)
+        return feature_layer
