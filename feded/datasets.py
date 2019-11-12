@@ -19,17 +19,6 @@ DEFAULT_LARC_TARGET_COLNAME = "CRSE_GRD_OFFCL_CD"
 # be restricted, so this would be a good choice).
 DEFAULT_LARC_CLIENT_COLNAME = "SBJCT_CD"
 
-# the features to use by default; adding to these may also require implementing
-# relevant preprocessing for the feature columns, e.g. by modifying
-# CATEGORICAL_FEATURE_VALUES or adding to DEFAULT_LARC_NUMERIC_FEATURES below and updating
-# make_feature_layer() accordingly.
-DEFAULT_LARC_FEATURE_COLNAMES = [
-    "CATLG_NBR",
-    "CLASS_NBR",
-    "EXCL_CLASS_CUM_GPA",
-    "GRD_BASIS_ENRL_CD",
-    "TERM_CD",
-]
 
 # explicitly specify the categorical features and the values they can take
 # TODO(jpgard): create a function which reads these directly from the data for a list
