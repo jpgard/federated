@@ -19,7 +19,6 @@ DEFAULT_LARC_TARGET_COLNAME = "CRSE_GRD_OFFCL_CD"
 # be restricted, so this would be a good choice).
 DEFAULT_LARC_CLIENT_COLNAME = "SBJCT_CD"
 
-
 # explicitly specify the categorical features and the values they can take
 # TODO(jpgard): create a function which reads these directly from the data for a list
 #  of specified categorical feature names; or even better, implement these as part of
@@ -37,9 +36,9 @@ CATEGORICAL_FEATURE_VALUES = {
 # TODO(jpgard): several of these should be categorical or ordinal features,
 #  NOT numeric, as they are really just numeric identifiers for categorical features.
 DEFAULT_LARC_NUMERIC_FEATURES = ["CATLG_NBR",
-                    "CLASS_NBR",
-                    "EXCL_CLASS_CUM_GPA",
-                    "TERM_CD"]
+                                 "CLASS_NBR",
+                                 "EXCL_CLASS_CUM_GPA",
+                                 "TERM_CD"]
 
 DEFAULT_LARC_EMBEDDING_FEATURES = []
 
@@ -49,6 +48,7 @@ BATCH_SIZE = 20
 NUM_EPOCHS = 50
 SHUFFLE_BUFFER = 10
 BATCH_SIZE = 8
+
 
 def normalize_numeric_data(data, mean, std):
     """Center the data."""
@@ -105,6 +105,7 @@ def preprocess(dataset):
 
 class TabularDataset(ABC):
     """A class to represent tabular datasets."""
+
     def __init__(self, client_id_col: str,
                  num_epochs: int = NUM_EPOCHS,
                  shuffle_buffer: int = SHUFFLE_BUFFER,
@@ -137,6 +138,7 @@ class TabularDataset(ABC):
 
 class LarcDataset(TabularDataset):
     """A class to represent the LARC dataset."""
+
     def __init__(self, client_id_col: str = DEFAULT_LARC_CLIENT_COLNAME,
                  num_epochs: int = NUM_EPOCHS,
                  shuffle_buffer: int = SHUFFLE_BUFFER,
