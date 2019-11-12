@@ -57,23 +57,6 @@ SHUFFLE_BUFFER = 10
 BATCH_SIZE = 8
 
 
-def normalize_numeric_data(data, mean, std):
-    """Center the data."""
-    return (data - mean) / std
-
-
-def get_numeric_columns(train_file_path):
-    desc = pd.read_csv(train_file_path)[DEFAULT_LARC_NUMERIC_FEATURES].describe()
-    sample_mean = np.array(desc.T['mean'])
-    sample_std = np.array(desc.T['std'])
-    normalizer = functools.partial(normalize_numeric_data, mean=sample_mean,
-                                   std=sample_std)
-    numeric_column = tf.feature_column.numeric_column(
-        'numeric', normalizer_fn=normalizer, shape=[len(DEFAULT_LARC_NUMERIC_FEATURES)])
-    numeric_columns = [numeric_column]
-    return numeric_columns
-
-
 def preprocess(dataset, feature_layer):
 
     def element_fn(element):
@@ -182,6 +165,7 @@ class LarcDataset(TabularDataset):
         # generate a list of feature columns
         feature_columns = list()
         for nc in self.numeric_columns:
+            # TODO(jpgard): normalize the numeric columns
             feature_columns.append(tf.feature_column.numeric_column(nc))
         for cc in self.categorical_columns:
             # create one-hot encoded columns for each categorical column
