@@ -12,5 +12,5 @@ def generate_categorical_feature_dict(df: pd.DataFrame, categorical_features: li
     """
     feature_values_dict = dict()
     for f in categorical_features:
-        feature_values_dict[f] = df[feature_values_dict].unique()
+        feature_values_dict[f] = df[f].unique()
     return feature_values_dict
