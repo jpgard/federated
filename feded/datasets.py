@@ -26,9 +26,20 @@ DEFAULT_LARC_CLIENT_COLNAME = "SBJCT_CD"
 #  of specified categorical feature names; or even better, implement these as part of
 #  an object representing the dataset.
 DEFAULT_LARC_CATEGORICAL_FEATURES = [
-    "CRSE_GRD_OFFCL_CD",
-    "GRD_BASIS_ENRL_CD"
-
+    # "CRER_LVL_CD",  # Career Level Code
+    "CRSE_CMPNT_CD",  # Course Component Code
+    "CRSE_GRD_OFFCL_CD",  # Course Grade Official Code (The official grade that appears
+    # on a student's transcript)
+    "EST_GROSS_FAM_INC_CD",  # Estimated Gross Family Income Code (SENSITIVE ATTRIBUTE)
+    # "HS_STATE_CD", # High School State Code (note: only exists for US/CA students)
+    "GRD_BASIS_ENRL_CD",
+    # "PRMRY_CRER_CD",  # Primary Career Code
+    "PRNT_MAX_ED_LVL_CD",  # Parent Maximum Education Level Code (SENSITIVE ATTRIBUTE)
+    # "RES_CD",  # Residency Code (SENSITIVE ATTRIBUTE)
+    "SBJCT_CD",  # Subject Code TODO(jpgard): might move to embedding columns later
+    "STDNT_DMSTC_UNDREP_MNRTY_CD",  # Student Domestic Underrepresented Minority (URM) Code (SENSITIVE ATTRIBUTE)
+    "STDNT_ETHNC_GRP_CD",  # Student Ethnic Group Code (SENSITIVE ATTRIBUTE)
+    "STDNT_GNDR_CD",  # Student Gender Code (SENSITIVE ATTRIBUTE)
 ]
 
 # explicitly specify the numeric features
@@ -37,16 +48,48 @@ DEFAULT_LARC_CATEGORICAL_FEATURES = [
 #  representing the dataset.
 # TODO(jpgard): several of these should be categorical or ordinal features,
 #  NOT numeric, as they are really just numeric identifiers for categorical features.
-DEFAULT_LARC_NUMERIC_FEATURES = [
+DEFAULT_LARC_NUMERIC_FEATURES = [  # numeric and binary features
+    # "ACAD_MAJOR_CNT",  # Academic Major Count
+    # "ACAD_MINOR_CNT",  # Academic Minor Count
+    "ADMSSN_VTRN_IND",  # Admission Veteran Indicator (SENSITIVE ATTRIBUTE)
+    "CLASS_ENRL_TOTAL_NBR",  # Class Enrollment Total Number
+    "CLASS_GRDD_IND",  # Class Graded Indicator TODO(jpgard): filter for 1 ("yes") only
+    "CLASS_HONORS_IND",  # Class Honors Indicator
     # TODO(jpgard): take the leading digit of catlg_nbr as a feature; note that some
     #  courses have invalid (non-numeric) catlg_nbr, such as '300HNSP.U'
     # "CATLG_NBR",
-    "CLASS_NBR",
+    "CMBN_CLASS_ENRL_TOTAL_NBR",  # Combined Class Enrollment Total Number
     "EXCL_CLASS_CUM_GPA",
-    "TERM_CD"
+    "HS_CALC_IND",  # High School Calculus Indicator (self-reported)
+    "HS_CHEM_LAB_IND",  # High School Chemistry Laboratory Indicator (self-reported)
+    "HS_GPA",  # High School Grade Point Average
+    # "PREV_TERM_CUM_GPA",  # Previous Term Cumulative Grade Point Average
+    "SNGL_PRNT_IND",  # Single Parent Indicator (SENSITIVE ATTRIBUTE)
+    # "SPPLMNT_STUDY_IND",  # Supplemental Study Indicator
+    "STDNT_ASIAN_IND",  # Student Asian Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_BIRTH_YR",  # Student Birth Year TODO(jpgard): take (birth year - term year)
+    # to obtain an additional feature for approximate age
+    "STDNT_BLACK_IND", # Student Black Indicator (SENSITIVE ATTRIBUTE)
+    ## "STDNT_CTZN_STAT_CD",  # Student Citizenship Status Code (SENSITIVE ATTRIBUTE) (
+    # (INVALID 'N' value)
+    "STDNT_HSPNC_IND",  # Student Hispanic Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_HSPNC_LATINO_IND",  # Student Hispanic Latino Indicator (SENSITIVE ATTRIBITE)
+    "STDNT_HWIAN_IND",  # Student Hawaiian Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_INTL_IND",  # Student International Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_MULTI_ETHNC_IND",  # Student Multi Ethnic Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_NTV_AMRCN_IND",  # Student Native American Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_NTV_ENG_SPKR_IND",  # Student Native English Speaker Indicator (SENSITIVE
+    # ATTRIBUTE)
+    "STDNT_WHITE_IND",  # Student White Indicator (SENSITIVE ATTRIBUTE)
+    "TERM_CD"  # Term Code
 ]
 
-DEFAULT_LARC_EMBEDDING_FEATURES = []
+DEFAULT_LARC_EMBEDDING_FEATURES = [
+    # "FIRST_US_PRMNNT_RES_P STL_5_CD", # First Student United States Permanent
+    # Residence Postal Five Code (SENSITIVE ATTRIBUTE)
+    # "HS_CEEB_CD", # High School College Entrance Examination Board Code
+    # "HS_PSTL_CD", # High School Postal Code
+]
 
 
 def preprocess(dataset, feature_layer, training_config: TrainingConfig):
@@ -63,7 +106,9 @@ def preprocess(dataset, feature_layer, training_config: TrainingConfig):
             ('x', tf.reshape(feature_vector, [feature_vector.shape[1]])),
             ('y', tf.reshape(element['EXCL_CLASS_CUM_GPA'], [1])),
         ])
-    return dataset.repeat(num_epochs).map(element_fn).shuffle(shuffle_buffer).batch(batch_size)
+
+    return dataset.repeat(num_epochs).map(element_fn).shuffle(shuffle_buffer).batch(
+        batch_size)
 
 
 class TabularDataset(ABC):
@@ -125,7 +170,12 @@ class LarcDataset(TabularDataset):
         # read the data
         colnames_to_keep = [self.client_id_col] + self.feature_column_names
         df = pd.read_csv(fp, usecols=colnames_to_keep, na_values=('', ' '),
-                              keep_default_na=True, dtype=dtypes)
+                         keep_default_na=True, dtype=dtypes)
+        print("[INFO] raw dataset rows: {}".format(df.shape[0]))
+        print("[INF)] null counts:")
+        print(df.isnull().sum(axis=0))
+        # TODO(jpgard): print NA counts by feature here.
+
         # TODO(jpgard): handle NA values instead of dropping incomplete cases; for
         #  some features (e.g. categorical features) we can generate an indicator
         #  for missingness; for missing numeric features these will likely need to
@@ -133,6 +183,7 @@ class LarcDataset(TabularDataset):
         #  cannot be in the vocab for any FeatureColumns (otherwise this leads to
         #  TypeError when converting to Tensor).
         df.dropna(inplace=True)
+        print("[INFO] dataset rows after dropping NAs: {}".format(df.shape[0]))
         self.df = df
         return
 
@@ -170,4 +221,3 @@ class LarcDataset(TabularDataset):
         # TODO(jpgard): embedding columns here
         feature_layer = tf.keras.layers.DenseFeatures(feature_columns)
         return feature_layer
-
