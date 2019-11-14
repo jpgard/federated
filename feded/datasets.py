@@ -10,6 +10,7 @@ import numpy as np
 
 from abc import ABC, abstractmethod
 from feded.preprocessing import generate_categorical_feature_dict
+from feded.config import TrainingConfig
 from typing import Optional, Tuple, List
 
 # the prediction target
@@ -47,14 +48,12 @@ DEFAULT_LARC_NUMERIC_FEATURES = [
 
 DEFAULT_LARC_EMBEDDING_FEATURES = []
 
-# default training parameters
-# TODO(jpgard): increase these later
-NUM_EPOCHS = 50
-SHUFFLE_BUFFER = 10
-BATCH_SIZE = 8
 
+def preprocess(dataset, feature_layer, training_config: TrainingConfig):
+    num_epochs = training_config.epochs
+    shuffle_buffer = training_config.shuffle_buffer
+    batch_size = training_config.batch_size
 
-def preprocess(dataset, feature_layer):
     def element_fn(element):
         # element_fn extracts feature and label vectors from each element;
         # 'x' and 'y' names are required by keras.
@@ -64,15 +63,13 @@ def preprocess(dataset, feature_layer):
             ('x', tf.reshape(feature_vector, [feature_vector.shape[1]])),
             ('y', tf.reshape(element['EXCL_CLASS_CUM_GPA'], [1])),
         ])
-    return dataset.repeat(NUM_EPOCHS).map(element_fn).shuffle(SHUFFLE_BUFFER).batch(BATCH_SIZE)
+    return dataset.repeat(num_epochs).map(element_fn).shuffle(shuffle_buffer).batch(batch_size)
 
 
 class TabularDataset(ABC):
     """A class to represent tabular datasets."""
 
     def __init__(self, client_id_col: str,
-                 num_epochs: int = NUM_EPOCHS,
-                 shuffle_buffer: int = SHUFFLE_BUFFER,
                  categorical_columns: Optional[List[str]] = None,
                  embedding_columns: Optional[List[str]] = None,
                  numeric_columns: Optional[List[str]] = None,
@@ -82,8 +79,6 @@ class TabularDataset(ABC):
         self.embedding_columns = embedding_columns
         self.numeric_columns = numeric_columns
         self.df = None
-        self.num_epochs = num_epochs
-        self.shuffle_buffer = shuffle_buffer
 
     @property
     def feature_column_names(self):
@@ -95,7 +90,7 @@ class TabularDataset(ABC):
         raise  # this line should never be reached
 
     @abstractmethod
-    def create_tf_dataset_for_client(self, client_id):
+    def create_tf_dataset_for_client(self, client_id, training_config: TrainingConfig):
         """"Creates a tf.Dataset for the given client id."""
         raise  # this line should never be reached
 
@@ -109,8 +104,6 @@ class LarcDataset(TabularDataset):
     """A class to represent the LARC dataset."""
 
     def __init__(self, client_id_col: str = DEFAULT_LARC_CLIENT_COLNAME,
-                 num_epochs: int = NUM_EPOCHS,
-                 shuffle_buffer: int = SHUFFLE_BUFFER,
                  categorical_columns: List[str] = DEFAULT_LARC_CATEGORICAL_FEATURES,
                  embedding_columns: List[str] = DEFAULT_LARC_EMBEDDING_FEATURES,
                  numeric_columns: List[str] = DEFAULT_LARC_NUMERIC_FEATURES,
@@ -118,9 +111,7 @@ class LarcDataset(TabularDataset):
         super(LarcDataset, self).__init__(client_id_col=client_id_col,
                                           categorical_columns=categorical_columns,
                                           embedding_columns=embedding_columns,
-                                          numeric_columns=numeric_columns,
-                                          num_epochs=num_epochs,
-                                          shuffle_buffer=shuffle_buffer
+                                          numeric_columns=numeric_columns
                                           )
 
     def read_data(self, fp):
@@ -145,13 +136,13 @@ class LarcDataset(TabularDataset):
         self.df = df
         return
 
-    def create_tf_dataset_for_client(self, client_id):
+    def create_tf_dataset_for_client(self, client_id, training_config: TrainingConfig):
         # filter the dataset by client_id, keeping only the feature and target colnames
         df = self.df[self.df[self.client_id_col] == client_id][self.feature_column_names]
         if len(df):
             dataset = tf.data.Dataset.from_tensor_slices(df.to_dict('list'))
-            dataset = dataset.shuffle(self.shuffle_buffer).batch(1).repeat(
-                self.num_epochs)
+            dataset = dataset.shuffle(training_config.shuffle_buffer).batch(1).repeat(
+                training_config.epochs)
             return dataset
         else:
             print("[WARNING] no data for specified client_id {}".format(client_id))
@@ -180,6 +171,3 @@ class LarcDataset(TabularDataset):
         feature_layer = tf.keras.layers.DenseFeatures(feature_columns)
         return feature_layer
 
-# class FeatureSpec:
-#     def __init__(self, categorical_features, float_features, int_features,
-#                  target_feature):
