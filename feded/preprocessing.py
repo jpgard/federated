@@ -4,6 +4,7 @@ Functions for preprocessing data.
 import glob
 import pandas as pd
 
+
 def generate_categorical_feature_dict(df: pd.DataFrame, categorical_features: list):
     """
     Create a dictionary of {feature_name: [unique_values,]}.
@@ -23,7 +24,7 @@ def filter_df_by_values(df: pd.DataFrame, colname: str, keep_vals: list):
 
 
 def make_binary_indicator_column(df: pd.DataFrame, colname: str, positive_vals: list,
-                                 replace=False, newname = None):
+                                 replace=False, newname=None):
     """Create a binary indicator column where rows with values for colname which are in
         positive_vals take a value of 1 and all others take 0."""
     binary_indicator = df[colname].isin(positive_vals).astype(int)
