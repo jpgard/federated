@@ -3,13 +3,16 @@ Functions to load and transform datasets.
 """
 import collections
 import functools
+import itertools
+import re
 
 import pandas as pd
 import tensorflow as tf
 import numpy as np
 
 from abc import ABC, abstractmethod
-from feded.preprocessing import generate_categorical_feature_dict
+from feded.preprocessing import generate_categorical_feature_dict, filter_df_by_values, \
+    make_binary_indicator_column
 from feded.config import TrainingConfig
 from typing import Optional, Tuple, List
 
@@ -37,7 +40,8 @@ DEFAULT_LARC_CATEGORICAL_FEATURES = [
     "PRNT_MAX_ED_LVL_CD",  # Parent Maximum Education Level Code (SENSITIVE ATTRIBUTE)
     # "RES_CD",  # Residency Code (SENSITIVE ATTRIBUTE)
     "SBJCT_CD",  # Subject Code TODO(jpgard): might move to embedding columns later
-    "STDNT_DMSTC_UNDREP_MNRTY_CD",  # Student Domestic Underrepresented Minority (URM) Code (SENSITIVE ATTRIBUTE)
+    "STDNT_DMSTC_UNDREP_MNRTY_CD",
+    # Student Domestic Underrepresented Minority (URM) Code (SENSITIVE ATTRIBUTE)
     "STDNT_ETHNC_GRP_CD",  # Student Ethnic Group Code (SENSITIVE ATTRIBUTE)
     "STDNT_GNDR_CD",  # Student Gender Code (SENSITIVE ATTRIBUTE)
 ]
@@ -59,7 +63,7 @@ DEFAULT_LARC_NUMERIC_FEATURES = [  # numeric and binary features
     #  courses have invalid (non-numeric) catlg_nbr, such as '300HNSP.U'
     # "CATLG_NBR",
     "CMBN_CLASS_ENRL_TOTAL_NBR",  # Combined Class Enrollment Total Number
-    "EXCL_CLASS_CUM_GPA",
+    # "EXCL_CLASS_CUM_GPA",
     "HS_CALC_IND",  # High School Calculus Indicator (self-reported)
     "HS_CHEM_LAB_IND",  # High School Chemistry Laboratory Indicator (self-reported)
     "HS_GPA",  # High School Grade Point Average
@@ -69,7 +73,7 @@ DEFAULT_LARC_NUMERIC_FEATURES = [  # numeric and binary features
     "STDNT_ASIAN_IND",  # Student Asian Indicator (SENSITIVE ATTRIBUTE)
     "STDNT_BIRTH_YR",  # Student Birth Year TODO(jpgard): take (birth year - term year)
     # to obtain an additional feature for approximate age
-    "STDNT_BLACK_IND", # Student Black Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_BLACK_IND",  # Student Black Indicator (SENSITIVE ATTRIBUTE)
     ## "STDNT_CTZN_STAT_CD",  # Student Citizenship Status Code (SENSITIVE ATTRIBUTE) (
     # (INVALID 'N' value)
     "STDNT_HSPNC_IND",  # Student Hispanic Indicator (SENSITIVE ATTRIBUTE)
@@ -81,7 +85,7 @@ DEFAULT_LARC_NUMERIC_FEATURES = [  # numeric and binary features
     "STDNT_NTV_ENG_SPKR_IND",  # Student Native English Speaker Indicator (SENSITIVE
     # ATTRIBUTE)
     "STDNT_WHITE_IND",  # Student White Indicator (SENSITIVE ATTRIBUTE)
-    "TERM_CD"  # Term Code
+    "TERM_CD",  # Term Code
 ]
 
 DEFAULT_LARC_EMBEDDING_FEATURES = [
@@ -90,9 +94,16 @@ DEFAULT_LARC_EMBEDDING_FEATURES = [
     # "HS_CEEB_CD", # High School College Entrance Examination Board Code
     # "HS_PSTL_CD", # High School Postal Code
 ]
+# A+, A, A-, B+, ...
+LARC_VALID_GRADES = [''.join(x) for x in itertools.product(['A', 'B', 'C', 'D', 'E', 'F'],
+                                                           ['+', '', '-'])]
+# The "passing" grades; these are the positive labels
+LARC_PASSING_GRADES = [g for g in LARC_VALID_GRADES if re.match("[ABC].*", g)]
 
 
-def preprocess(dataset, feature_layer, training_config: TrainingConfig):
+def preprocess(dataset, feature_layer, training_config: TrainingConfig,
+               target_feature=DEFAULT_LARC_TARGET_COLNAME):
+    """Preprocess data with a single-element label (label of length one)."""
     num_epochs = training_config.epochs
     shuffle_buffer = training_config.shuffle_buffer
     batch_size = training_config.batch_size
@@ -104,7 +115,7 @@ def preprocess(dataset, feature_layer, training_config: TrainingConfig):
 
         return collections.OrderedDict([
             ('x', tf.reshape(feature_vector, [feature_vector.shape[1]])),
-            ('y', tf.reshape(element['EXCL_CLASS_CUM_GPA'], [1])),
+            ('y', tf.reshape(element[target_feature], [1])),
         ])
 
     return dataset.repeat(num_epochs).map(element_fn).shuffle(shuffle_buffer).batch(
@@ -115,15 +126,17 @@ class TabularDataset(ABC):
     """A class to represent tabular datasets."""
 
     def __init__(self, client_id_col: str,
+                 target_column: str,
                  categorical_columns: Optional[List[str]] = None,
                  embedding_columns: Optional[List[str]] = None,
                  numeric_columns: Optional[List[str]] = None,
                  ):
         self.client_id_col = client_id_col
         self.categorical_columns = categorical_columns
+        self.df = None
         self.embedding_columns = embedding_columns
         self.numeric_columns = numeric_columns
-        self.df = None
+        self.target_column = target_column
 
     @property
     def feature_column_names(self):
@@ -149,11 +162,13 @@ class LarcDataset(TabularDataset):
     """A class to represent the LARC dataset."""
 
     def __init__(self, client_id_col: str = DEFAULT_LARC_CLIENT_COLNAME,
+                 target_column: str = DEFAULT_LARC_TARGET_COLNAME,
                  categorical_columns: List[str] = DEFAULT_LARC_CATEGORICAL_FEATURES,
                  embedding_columns: List[str] = DEFAULT_LARC_EMBEDDING_FEATURES,
                  numeric_columns: List[str] = DEFAULT_LARC_NUMERIC_FEATURES,
                  ):
         super(LarcDataset, self).__init__(client_id_col=client_id_col,
+                                          target_column=target_column,
                                           categorical_columns=categorical_columns,
                                           embedding_columns=embedding_columns,
                                           numeric_columns=numeric_columns
@@ -172,9 +187,12 @@ class LarcDataset(TabularDataset):
         df = pd.read_csv(fp, usecols=colnames_to_keep, na_values=('', ' '),
                          keep_default_na=True, dtype=dtypes)
         print("[INFO] raw dataset rows: {}".format(df.shape[0]))
-        print("[INF)] null counts:")
+        df = filter_df_by_values(df, self.target_column, LARC_VALID_GRADES)
+        df = make_binary_indicator_column(df, self.target_column,
+                                          positive_vals=LARC_PASSING_GRADES, replace=True)
+        print("[INFO] dataset rows after target filtering: {}".format(df.shape[0]))
+        print("[INFO] null counts:")
         print(df.isnull().sum(axis=0))
-        # TODO(jpgard): print NA counts by feature here.
 
         # TODO(jpgard): handle NA values instead of dropping incomplete cases; for
         #  some features (e.g. categorical features) we can generate an indicator
