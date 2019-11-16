@@ -15,8 +15,10 @@ def create_compiled_keras_model(input_shape):
     ])
     # compile the model
     model.compile(
-        loss=tf.keras.losses.MeanSquaredError(),
+        loss=tf.keras.losses.BinaryCrossentropy(),
         optimizer=tf.keras.optimizers.SGD(learning_rate=0.02),
         metrics=[
-            tf.keras.metrics.MeanSquaredError()])  # TODO(jpgard): confirm this metric
+            tf.keras.metrics.BinaryCrossentropy(),
+            tf.keras.metrics.BinaryAccuracy(),
+        ])  # TODO(jpgard): confirm this metric
     return model
