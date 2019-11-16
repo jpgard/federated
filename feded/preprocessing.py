@@ -1,6 +1,7 @@
 """
 Functions for preprocessing data.
 """
+import glob
 import pandas as pd
 
 def generate_categorical_feature_dict(df: pd.DataFrame, categorical_features: list):
@@ -32,3 +33,17 @@ def make_binary_indicator_column(df: pd.DataFrame, colname: str, positive_vals: 
         assert newname, "must provide a new name if not replacing existing column."
         df[newname] = binary_indicator
     return df
+
+
+def read_csv(fp_or_wildcard: str, **kwargs):
+    """
+    Provides a pd.read_csv() -style interface supporting use of wildcards.
+    :param fp_or_wildcard: filepath or wildcard to read from.
+    :param kwargs: arguments passed to read.csv
+    :return: 
+    """
+    data = list()
+    for fp in glob.glob(fp_or_wildcard):
+        print("[INFO] reading data from {}".format(fp))
+        data.append(pd.read_csv(fp, **kwargs))
+    return pd.concat(data, axis=0, ignore_index=True)

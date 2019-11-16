@@ -12,7 +12,7 @@ import numpy as np
 
 from abc import ABC, abstractmethod
 from feded.preprocessing import generate_categorical_feature_dict, filter_df_by_values, \
-    make_binary_indicator_column
+    make_binary_indicator_column, read_csv
 from feded.config import TrainingConfig
 from typing import Optional, Tuple, List
 
@@ -184,8 +184,10 @@ class LarcDataset(TabularDataset):
             dtypes[nc] = np.float64
         # read the data
         colnames_to_keep = [self.client_id_col] + self.feature_column_names
-        df = pd.read_csv(fp, usecols=colnames_to_keep, na_values=('', ' '),
-                         keep_default_na=True, dtype=dtypes)
+        # df = pd.read_csv(fp, usecols=colnames_to_keep, na_values=('', ' '),
+        #                  keep_default_na=True, dtype=dtypes)
+        df = read_csv(fp, usecols=colnames_to_keep, na_values=('', ' '),
+                      keep_default_na=True, dtype=dtypes)
         print("[INFO] raw dataset rows: {}".format(df.shape[0]))
         df = filter_df_by_values(df, self.target_column, LARC_VALID_GRADES)
         df = make_binary_indicator_column(df, self.target_column,

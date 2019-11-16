@@ -1,10 +1,10 @@
 """
 Train a FedEd model.
 
-usage:
+Usage (note the use of quites surrounding the wildcard path):
 
 python train_feded_model.py \
-    --data_fp /Users/jpgard/Documents/github/federated/data/larc-split/train/train/train_40.csv \
+    --data_fp "/Users/jpgard/Documents/github/federated/data/larc-split/train/train/train_4*.csv" \
     --epochs 1 \
     --batch_size 1024 \
     --shuffle_buffer 500
@@ -12,10 +12,8 @@ python train_feded_model.py \
 """
 import argparse
 import six
-import pandas as pd
 import tensorflow as tf
 
-from functools import partial
 
 import tensorflow_federated as tff
 
