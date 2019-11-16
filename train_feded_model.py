@@ -4,7 +4,8 @@ Train a FedEd model.
 Usage (note the use of quites surrounding the wildcard path):
 
 python train_feded_model.py \
-    --data_fp "/Users/jpgard/Documents/github/federated/data/larc-split/train/train/train_4*.csv" \
+    --data_fp "/Users/jpgard/Documents/github/federated/data/larc-split/train/train
+    /train_4*.csv" \
     --epochs 1 \
     --batch_size 1024 \
     --shuffle_buffer 500
@@ -14,9 +15,7 @@ import argparse
 import six
 import tensorflow as tf
 
-
 import tensorflow_federated as tff
-
 
 # NOTE: If the statement below fails, it means that you are
 # using an older version of TFF without the high-performance
@@ -33,7 +32,8 @@ from feded.federated import sample_client_ids
 
 
 def make_federated_data(client_data, client_ids, feature_layer, training_config):
-    return [preprocess(client_data.create_tf_dataset_for_client(x), feature_layer, training_config)
+    return [preprocess(client_data.create_tf_dataset_for_client(x), feature_layer,
+                       training_config)
             for x in client_ids]
 
 
@@ -61,7 +61,8 @@ def main(data_fp: str, training_config: TrainingConfig):
 
     # example_element = iter(example_dataset).next()
     # print(example_element)
-    preprocessed_example_dataset = preprocess(example_dataset, feature_layer, training_config)
+    preprocessed_example_dataset = preprocess(example_dataset, feature_layer,
+                                              training_config)
 
     sample_batch = tf.nest.map_structure(
         lambda x: x.numpy(), iter(preprocessed_example_dataset).next())
@@ -80,12 +81,11 @@ def main(data_fp: str, training_config: TrainingConfig):
     # fetch the federated training data and execute an iteration of training
     train_client_ids = feded_train.client_ids
 
-
     for i in range(training_config.epochs):
         client_ids = sample_client_ids(train_client_ids,
                                        training_config.num_train_clients, method="random")
         epoch_federated_train_data = make_federated_data(feded_train, client_ids,
-                                                   feature_layer, training_config)
+                                                         feature_layer, training_config)
         state, metrics = iterative_process.next(state, epoch_federated_train_data)
         print('round  {}, metrics={}'.format(i, metrics))
 
