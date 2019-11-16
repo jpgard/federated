@@ -20,5 +20,5 @@ def create_compiled_keras_model(input_shape):
         metrics=[
             tf.keras.metrics.BinaryCrossentropy(),
             tf.keras.metrics.BinaryAccuracy(),
-        ])  # TODO(jpgard): confirm this metric
+        ])
     return model
