@@ -157,6 +157,11 @@ class TabularDataset(ABC):
         """Create a keras.DenseFeatures layer."""
         raise
 
+    @property
+    def client_ids(self):
+        """The ids of all clients."""
+        return self.df[self.client_id_col].unique().tolist()
+
 
 class LarcDataset(TabularDataset):
     """A class to represent the LARC dataset."""

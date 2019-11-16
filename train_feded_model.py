@@ -17,7 +17,6 @@ import tensorflow as tf
 
 import tensorflow_federated as tff
 
-NUM_CLIENTS = 3
 
 # NOTE: If the statement below fails, it means that you are
 # using an older version of TFF without the high-performance
@@ -25,11 +24,12 @@ NUM_CLIENTS = 3
 # instead to use the default reference runtime.
 if six.PY3:
     tff.framework.set_default_executor(
-        tff.framework.create_local_executor(NUM_CLIENTS))
+        tff.framework.create_local_executor())
 
 from feded.datasets import preprocess, LarcDataset
 from feded.model import create_compiled_keras_model
 from feded.config import TrainingConfig
+from feded.federated import sample_client_ids
 
 
 def make_federated_data(client_data, client_ids, feature_layer, training_config):
@@ -45,13 +45,7 @@ def main(data_fp: str, training_config: TrainingConfig):
         x, training_config=training_config)
     feature_layer = dataset.make_feature_layer()
 
-    # TODO(jpgard): move this into a function that fetches client ids; optionally
-    #  should apply some sort of threshold t, only returning data from clients with
-    #  count(client) >= t
-    # client_ids = pd.read_csv(data_fp,
-    #     usecols=[DEFAULT_LARC_CLIENT_COLNAME])[
-    #     #     DEFAULT_LARC_CLIENT_COLNAME].unique()
-    client_ids = ["ECON", "MATH", "ENGLISH", "MATSCIE"]
+    client_ids = dataset.client_ids
     feded_train = tff.simulation.ClientData.from_clients_and_fn(
         client_ids=client_ids,
         create_tf_dataset_for_client_fn=create_tf_dataset_for_client_fn
@@ -84,12 +78,15 @@ def main(data_fp: str, training_config: TrainingConfig):
     state = iterative_process.initialize()
 
     # fetch the federated training data and execute an iteration of training
-    train_client_ids = feded_train.client_ids[:NUM_CLIENTS]
-    federated_train_data = make_federated_data(feded_train, train_client_ids,
-                                               feature_layer, training_config)
+    train_client_ids = feded_train.client_ids
+
 
     for i in range(training_config.epochs):
-        state, metrics = iterative_process.next(state, federated_train_data)
+        client_ids = sample_client_ids(train_client_ids,
+                                       training_config.num_train_clients, method="random")
+        epoch_federated_train_data = make_federated_data(feded_train, client_ids,
+                                                   feature_layer, training_config)
+        state, metrics = iterative_process.next(state, epoch_federated_train_data)
         print('round  {}, metrics={}'.format(i, metrics))
 
 
@@ -99,7 +96,11 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, help="number of training epochs")
     parser.add_argument("--batch_size", type=int, help="batch size for training")
     parser.add_argument("--shuffle_buffer", type=int, help="shuffle buffer", default=500)
+    parser.add_argument("--num_train_clients", type=int,
+                        help="number of clients to sample during each training step",
+                        default=3)
     args = parser.parse_args()
     training_config = TrainingConfig(batch_size=args.batch_size, epochs=args.epochs,
-                                     shuffle_buffer=args.shuffle_buffer)
+                                     shuffle_buffer=args.shuffle_buffer,
+                                     num_train_clients=args.num_train_clients)
     main(args.data_fp, training_config)
