@@ -1,3 +1,7 @@
+"""
+Functions and classes to represent datasets.
+"""
+
 from abc import ABC, abstractmethod
 from typing import Optional, List
 
