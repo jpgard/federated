@@ -4,8 +4,6 @@ Functions for preprocessing data.
 
 
 import collections
-
-import pandas as pd
 from pandas.api.types import is_numeric_dtype, is_object_dtype
 
 import tensorflow as tf
