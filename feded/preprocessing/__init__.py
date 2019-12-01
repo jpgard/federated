@@ -6,7 +6,7 @@ Functions for preprocessing data.
 import collections
 
 import pandas as pd
-from pandas.api.types import is_numeric_dtype
+from pandas.api.types import is_numeric_dtype, is_object_dtype
 
 import tensorflow as tf
 
@@ -97,4 +97,14 @@ def minmax_scale_numeric_columns(df: pd.DataFrame, columns: list):
             df[column] = df[column] - col_min
         else: # case: normal case; center and scale
             df[column] = (df[column] - col_min) / col_max
+    return df
+
+
+def generate_missing_value_indicator(df: pd.DataFrame, columns: list, fill_value = "NA"):
+    """Fill any na values in columns with fill_value."""
+    for column in columns:
+        if not is_object_dtype(df[column]):
+            print("skipping non-object column {}".format(column))
+        else:
+            df[column] = df[column].fillna(fill_value)
     return df

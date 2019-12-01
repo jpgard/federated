@@ -9,7 +9,7 @@ from feded.config import TrainingConfig
 from feded.datasets import TabularDataset
 from feded.preprocessing import read_csv, filter_df_by_values, \
     make_binary_indicator_column, generate_categorical_feature_dict, \
-    minmax_scale_numeric_columns
+    minmax_scale_numeric_columns, generate_missing_value_indicator
 
 # the prediction target
 
@@ -123,7 +123,17 @@ class LarcDataset(TabularDataset):
         return
 
     def _preprocessing_fn(self, df):
-        """The function applied to preprocessing the raw DataFrame from reading CSV."""
+        """
+        The function applied to preprocessing the raw DataFrame from reading CSV.
+
+        Handles procedures like preprocessing the label column, filtering for desired
+        values, handling missing values, normalizing inputs to range [0,1],
+        etc. Optionally, also prints some  information about how much data is
+        discarded, etc for easy monitoring at execution time. Note that
+        Ultimately, dataset CANNOT contain any missing values and nan
+        cannot be in the vocab for any FeatureColumns (otherwise this leads to
+        TypeError when converting to Tensor).
+        """
         print("[INFO] raw dataset rows: {}".format(df.shape[0]))
         df = filter_df_by_values(df, self.target_column, LARC_VALID_GRADES)
         df = make_binary_indicator_column(df, self.target_column,
@@ -131,19 +141,14 @@ class LarcDataset(TabularDataset):
         print("[INFO] dataset rows after target filtering: {}".format(df.shape[0]))
         print("[INFO]: label value counts:")
         print(df[self.target_column].value_counts())
-        print("[INFO] null counts:")
-        print(df.isnull().sum(axis=0))
 
-        # TODO(jpgard): handle NA values instead of dropping incomplete cases; for
-        #  some features (e.g. categorical features) we can generate an indicator
-        #  for missingness; for missing numeric features these will likely need to
-        #  be dropped. Ultimately, dataset CANNOT contain any missing values and nan
-        #  cannot be in the vocab for any FeatureColumns (otherwise this leads to
-        #  TypeError when converting to Tensor).
+        df = generate_missing_value_indicator(df, self.categorical_columns)
+        print("[INFO] null counts after creating indicator for categorical columns:")
+        print(df.isnull().sum(axis=0))
         df.dropna(inplace=True)
         print("[INFO] dataset rows after dropping NAs: {}".format(df.shape[0]))
         df = minmax_scale_numeric_columns(df, self.numeric_columns)
-        print("dataset description:")
+        print("final preprocessed dataset description:")
         print(df.describe().T)
         return df
 
