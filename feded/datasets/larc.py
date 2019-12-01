@@ -20,21 +20,41 @@ DEFAULT_LARC_TARGET_COLNAME = "CRSE_GRD_OFFCL_CD"
 DEFAULT_LARC_CLIENT_COLNAME = "SBJCT_CD"
 
 DEFAULT_LARC_CATEGORICAL_FEATURES = [
+    "ADMSSN_VTRN_IND",  # Admission Veteran Indicator (SENSITIVE ATTRIBUTE)
+    "CLASS_GRDD_IND",  # Class Graded Indicator TODO(jpgard): filter for 1 ("yes") only
+    "CLASS_HONORS_IND",  # Class Honors Indicator
     # "CRER_LVL_CD",  # Career Level Code
     "CRSE_CMPNT_CD",  # Course Component Code
     "CRSE_GRD_OFFCL_CD",  # Course Grade Official Code (The official grade that appears
     # on a student's transcript)
     "EST_GROSS_FAM_INC_CD",  # Estimated Gross Family Income Code (SENSITIVE ATTRIBUTE)
-    # "HS_STATE_CD", # High School State Code (note: only exists for US/CA students)
+    "HS_CALC_IND",  # High School Calculus Indicator (self-reported)
+    "HS_CHEM_LAB_IND",  # High School Chemistry Laboratory Indicator (self-reported)
+    "HS_STATE_CD", # High School State Code (note: only exists for US/CA students)
     "GRD_BASIS_ENRL_CD",
     # "PRMRY_CRER_CD",  # Primary Career Code
     "PRNT_MAX_ED_LVL_CD",  # Parent Maximum Education Level Code (SENSITIVE ATTRIBUTE)
     # "RES_CD",  # Residency Code (SENSITIVE ATTRIBUTE)
     "SBJCT_CD",  # Subject Code TODO(jpgard): might move to embedding columns later
+    "SNGL_PRNT_IND",  # Single Parent Indicator (SENSITIVE ATTRIBUTE)
+    # "SPPLMNT_STUDY_IND",  # Supplemental Study Indicator
+    "STDNT_ASIAN_IND",  # Student Asian Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_BLACK_IND",  # Student Black Indicator (SENSITIVE ATTRIBUTE)
+    ## "STDNT_CTZN_STAT_CD",  # Student Citizenship Status Code (SENSITIVE ATTRIBUTE) (
+    # (INVALID 'N' value)
     "STDNT_DMSTC_UNDREP_MNRTY_CD",
     # Student Domestic Underrepresented Minority (URM) Code (SENSITIVE ATTRIBUTE)
     "STDNT_ETHNC_GRP_CD",  # Student Ethnic Group Code (SENSITIVE ATTRIBUTE)
     "STDNT_GNDR_CD",  # Student Gender Code (SENSITIVE ATTRIBUTE)
+    "STDNT_HSPNC_IND",  # Student Hispanic Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_HSPNC_LATINO_IND",  # Student Hispanic Latino Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_HWIAN_IND",  # Student Hawaiian Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_INTL_IND",  # Student International Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_MULTI_ETHNC_IND",  # Student Multi Ethnic Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_NTV_AMRCN_IND",  # Student Native American Indicator (SENSITIVE ATTRIBUTE)
+    "STDNT_NTV_ENG_SPKR_IND",  # Student Native English Speaker Indicator (SENSITIVE
+    # ATTRIBUTE)
+    "STDNT_WHITE_IND",  # Student White Indicator (SENSITIVE ATTRIBUTE)
 ]
 
 # TODO(jpgard): several of these should be categorical or ordinal features,
@@ -43,36 +63,16 @@ DEFAULT_LARC_CATEGORICAL_FEATURES = [
 DEFAULT_LARC_NUMERIC_FEATURES = [  # numeric and binary features
     # "ACAD_MAJOR_CNT",  # Academic Major Count
     # "ACAD_MINOR_CNT",  # Academic Minor Count
-    "ADMSSN_VTRN_IND",  # Admission Veteran Indicator (SENSITIVE ATTRIBUTE)
     "CLASS_ENRL_TOTAL_NBR",  # Class Enrollment Total Number
-    "CLASS_GRDD_IND",  # Class Graded Indicator TODO(jpgard): filter for 1 ("yes") only
-    "CLASS_HONORS_IND",  # Class Honors Indicator
     # TODO(jpgard): take the leading digit of catlg_nbr as a feature; note that some
     #  courses have invalid (non-numeric) catlg_nbr, such as '300HNSP.U'
     # "CATLG_NBR",
     "CMBN_CLASS_ENRL_TOTAL_NBR",  # Combined Class Enrollment Total Number
     # "EXCL_CLASS_CUM_GPA",
-    "HS_CALC_IND",  # High School Calculus Indicator (self-reported)
-    "HS_CHEM_LAB_IND",  # High School Chemistry Laboratory Indicator (self-reported)
     "HS_GPA",  # High School Grade Point Average
     # "PREV_TERM_CUM_GPA",  # Previous Term Cumulative Grade Point Average
-    "SNGL_PRNT_IND",  # Single Parent Indicator (SENSITIVE ATTRIBUTE)
-    # "SPPLMNT_STUDY_IND",  # Supplemental Study Indicator
-    "STDNT_ASIAN_IND",  # Student Asian Indicator (SENSITIVE ATTRIBUTE)
     "STDNT_BIRTH_YR",  # Student Birth Year TODO(jpgard): take (birth year - term year)
     # to obtain an additional feature for approximate age
-    "STDNT_BLACK_IND",  # Student Black Indicator (SENSITIVE ATTRIBUTE)
-    ## "STDNT_CTZN_STAT_CD",  # Student Citizenship Status Code (SENSITIVE ATTRIBUTE) (
-    # (INVALID 'N' value)
-    "STDNT_HSPNC_IND",  # Student Hispanic Indicator (SENSITIVE ATTRIBUTE)
-    "STDNT_HSPNC_LATINO_IND",  # Student Hispanic Latino Indicator (SENSITIVE ATTRIBITE)
-    "STDNT_HWIAN_IND",  # Student Hawaiian Indicator (SENSITIVE ATTRIBUTE)
-    "STDNT_INTL_IND",  # Student International Indicator (SENSITIVE ATTRIBUTE)
-    "STDNT_MULTI_ETHNC_IND",  # Student Multi Ethnic Indicator (SENSITIVE ATTRIBUTE)
-    "STDNT_NTV_AMRCN_IND",  # Student Native American Indicator (SENSITIVE ATTRIBUTE)
-    "STDNT_NTV_ENG_SPKR_IND",  # Student Native English Speaker Indicator (SENSITIVE
-    # ATTRIBUTE)
-    "STDNT_WHITE_IND",  # Student White Indicator (SENSITIVE ATTRIBUTE)
     "TERM_CD",  # Term Code
 ]
 
@@ -149,7 +149,7 @@ class LarcDataset(TabularDataset):
         print("[INFO] dataset rows after dropping NAs: {}".format(df.shape[0]))
         df = minmax_scale_numeric_columns(df, self.numeric_columns)
         print("final preprocessed dataset description:")
-        print(df.describe().T)
+        print(df.describe(include='all').T.sort_values(by='unique'))
         return df
 
     def create_tf_dataset_for_client(self, client_id, training_config: TrainingConfig):
