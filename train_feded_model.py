@@ -4,8 +4,7 @@ Train a FedEd model.
 Usage (note the use of quites surrounding the wildcard path):
 
 python train_feded_model.py \
-    --data_fp "/Users/jpgard/Documents/github/federated/data/larc-split/train/train
-    /train_4*.csv" \
+    --data_fp "/Users/jpgard/Documents/github/federated/data/larc-split/train/train/train_4*.csv" \
     --epochs 1 \
     --batch_size 1024 \
     --shuffle_buffer 500
@@ -25,7 +24,8 @@ if six.PY3:
     tff.framework.set_default_executor(
         tff.framework.create_local_executor())
 
-from feded.datasets import preprocess, LarcDataset
+from feded.preprocessing import preprocess
+from feded.datasets.larc import LarcDataset, DEFAULT_LARC_TARGET_COLNAME
 from feded.model import create_compiled_keras_model
 from feded.config import TrainingConfig
 from feded.federated import sample_client_ids
@@ -33,7 +33,7 @@ from feded.federated import sample_client_ids
 
 def make_federated_data(client_data, client_ids, feature_layer, training_config):
     return [preprocess(client_data.create_tf_dataset_for_client(x), feature_layer,
-                       training_config)
+                       training_config, DEFAULT_LARC_TARGET_COLNAME)
             for x in client_ids]
 
 
@@ -62,7 +62,8 @@ def main(data_fp: str, training_config: TrainingConfig):
     # example_element = iter(example_dataset).next()
     # print(example_element)
     preprocessed_example_dataset = preprocess(example_dataset, feature_layer,
-                                              training_config)
+                                              training_config,
+                                              DEFAULT_LARC_TARGET_COLNAME)
 
     sample_batch = tf.nest.map_structure(
         lambda x: x.numpy(), iter(preprocessed_example_dataset).next())

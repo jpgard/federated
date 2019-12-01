@@ -6,17 +6,18 @@ Functions for preprocessing data.
 import collections
 
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
+
 import tensorflow as tf
 
 from feded.config import TrainingConfig
-from feded.datasets.larc import DEFAULT_LARC_TARGET_COLNAME
 
 import glob
 import pandas as pd
 
 
 def preprocess(dataset, feature_layer, training_config: TrainingConfig,
-               target_feature=DEFAULT_LARC_TARGET_COLNAME):
+               target_feature):
     """Preprocess data with a single-element label (label of length one)."""
     num_epochs = training_config.epochs
     shuffle_buffer = training_config.shuffle_buffer
@@ -79,3 +80,21 @@ def read_csv(fp_or_wildcard: str, **kwargs):
         print("[INFO] reading data from {}".format(fp))
         data.append(pd.read_csv(fp, **kwargs))
     return pd.concat(data, axis=0, ignore_index=True)
+
+
+def minmax_scale_numeric_columns(df: pd.DataFrame, columns: list):
+    """
+    Scale numeric columns to the range (0,1) using (min_value, max_value).
+    :param df:
+    :param columns:
+    :return: df with the original columns modified.
+    """
+    for column in columns:
+        assert is_numeric_dtype(df[column]), "only pass numeric columns to minmax scaler"
+        col_max = df[column].max()
+        col_min = df[column].min()
+        if col_max == col_min: # case: no scaling needed; just center
+            df[column] = df[column] - col_min
+        else: # case: normal case; center and scale
+            df[column] = (df[column] - col_min) / col_max
+    return df

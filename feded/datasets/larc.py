@@ -8,7 +8,8 @@ import tensorflow as tf
 from feded.config import TrainingConfig
 from feded.datasets import TabularDataset
 from feded.preprocessing import read_csv, filter_df_by_values, \
-    make_binary_indicator_column, generate_categorical_feature_dict
+    make_binary_indicator_column, generate_categorical_feature_dict, \
+    minmax_scale_numeric_columns
 
 # the prediction target
 
@@ -118,6 +119,11 @@ class LarcDataset(TabularDataset):
         colnames_to_keep = [self.client_id_col] + self.feature_column_names
         df = read_csv(fp, usecols=colnames_to_keep, na_values=('', ' '),
                       keep_default_na=True, dtype=dtypes)
+        self.df = self._preprocessing_fn(df)
+        return
+
+    def _preprocessing_fn(self, df):
+        """The function applied to preprocessing the raw DataFrame from reading CSV."""
         print("[INFO] raw dataset rows: {}".format(df.shape[0]))
         df = filter_df_by_values(df, self.target_column, LARC_VALID_GRADES)
         df = make_binary_indicator_column(df, self.target_column,
@@ -136,8 +142,10 @@ class LarcDataset(TabularDataset):
         #  TypeError when converting to Tensor).
         df.dropna(inplace=True)
         print("[INFO] dataset rows after dropping NAs: {}".format(df.shape[0]))
-        self.df = df
-        return
+        df = minmax_scale_numeric_columns(df, self.numeric_columns)
+        print("dataset description:")
+        print(df.describe().T)
+        return df
 
     def create_tf_dataset_for_client(self, client_id, training_config: TrainingConfig):
         # filter the dataset by client_id, keeping only the feature and target colnames
@@ -162,7 +170,6 @@ class LarcDataset(TabularDataset):
         # generate a list of feature columns
         feature_columns = list()
         for nc in self.numeric_columns:
-            # TODO(jpgard): normalize the numeric columns
             feature_columns.append(tf.feature_column.numeric_column(nc))
         for cc in self.categorical_columns:
             # create one-hot encoded columns for each categorical column
