@@ -164,6 +164,13 @@ class LarcDataset(TabularDataset):
             print("[WARNING] no data for specified client_id {}".format(client_id))
             return None
 
+    def create_tf_dataset(self,  training_config: TrainingConfig):
+        """"Create a single tf.Dataset to represent the entire (non-federated) dataset."""
+        dataset = tf.data.Dataset.from_tensor_slices(self.df.to_dict('list'))
+        dataset = dataset.shuffle(training_config.shuffle_buffer).batch(1).repeat(
+            training_config.epochs)
+        return dataset
+
     def make_feature_layer(self):
         """
         Utility function to assemble a feature layer; this builds a single dense feature

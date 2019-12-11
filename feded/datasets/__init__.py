@@ -39,6 +39,11 @@ class TabularDataset(ABC):
         raise  # this line should never be reached
 
     @abstractmethod
+    def create_tf_dataset(self,  training_config: TrainingConfig):
+        """"Create a single tf.Dataset to represent the entire (non-federated) dataset."""
+        raise  # this line should never be reached
+
+    @abstractmethod
     def make_feature_layer(self):
         """Create a keras.DenseFeatures layer."""
         raise
