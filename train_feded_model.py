@@ -49,6 +49,26 @@ def make_federated_data(client_data, client_ids, feature_layer, training_config)
             for x in client_ids]
 
 
+def make_sample_batch(dataset, feature_layer):
+    """Make a sample batch from a randomly-selected client id."""
+    example_dataset = dataset.create_tf_dataset_for_client(
+        dataset.client_ids[0]
+    )
+    # preprocess the dataset
+    preprocessed_example_dataset = preprocess(
+        example_dataset, feature_layer,
+        DEFAULT_LARC_TARGET_COLNAME,
+        num_epochs=training_config.epochs,
+        shuffle_buffer=training_config.shuffle_buffer,
+        batch_size=training_config.batch_size
+    )
+    # fetch a single sample batch from the preprocessed dataset
+    sample_batch = tf.nest.map_structure(
+        lambda x: x.numpy(), iter(preprocessed_example_dataset).next())
+    return sample_batch
+
+
+
 def main(data_fp: str, training_config: TrainingConfig):
     # # fetch and preprocess the data
     dataset = LarcDataset()
@@ -67,28 +87,12 @@ def main(data_fp: str, training_config: TrainingConfig):
         create_tf_dataset_for_client_fn=create_tf_dataset_for_client_fn
     )
 
-    example_dataset = feded_train.create_tf_dataset_for_client(
-        feded_train.client_ids[0]
-    )
-
-    # example_element = iter(example_dataset).next()
-    # print(example_element)
-    preprocessed_example_dataset = preprocess(
-        example_dataset, feature_layer,
-        DEFAULT_LARC_TARGET_COLNAME,
-        num_epochs=training_config.epochs,
-        shuffle_buffer=training_config.shuffle_buffer,
-        batch_size=training_config.batch_size
-    )
-
-    sample_batch = tf.nest.map_structure(
-        lambda x: x.numpy(), iter(preprocessed_example_dataset).next())
+    sample_batch = make_sample_batch(feded_train, feature_layer)
 
     def model_fn():
         keras_model = create_compiled_keras_model(
             input_shape=(sample_batch['x'].shape[1],))
-        return tff.learning.from_compiled_keras_model(keras_model,
-                                                      sample_batch)
+        return tff.learning.from_compiled_keras_model(keras_model, sample_batch)
 
     iterative_process = tff.learning.build_federated_averaging_process(
         model_fn)
@@ -97,14 +101,21 @@ def main(data_fp: str, training_config: TrainingConfig):
 
     # fetch the federated training data and execute an iteration of training
     train_client_ids = feded_train.client_ids
+    # evaluation = tff.learning.build_federated_evaluation(model_fn)
 
     for i in range(training_config.epochs):
         client_ids = sample_client_ids(train_client_ids,
                                        training_config.num_train_clients, method="random")
         epoch_federated_train_data = make_federated_data(feded_train, client_ids,
                                                          feature_layer, training_config)
-        state, metrics = iterative_process.next(state, epoch_federated_train_data)
-        print('round  {}, metrics={}'.format(i, metrics))
+        # epoch_federated_test_data = make_federated_data(feded_test,
+        #                                                 feded_test.client_ids,
+        #                                                 feature_layer, training_config)
+        state, train_metrics = iterative_process.next(state, epoch_federated_train_data)
+        # test_metrics = evaluation(state.model, epoch_federated_test_data)
+        print('round  {}, train_metrics={}'.format(i, train_metrics))
+        # print('round  {}, test_metrics={}'.format(i, test_metrics))
+
 
 
 if __name__ == "__main__":
