@@ -6,7 +6,12 @@ from abc import ABC, abstractmethod
 from typing import Optional, List
 
 from feded.training import TrainingConfig
+import tensorflow as tf
 
+
+def get_dataset_size(dataset: tf.data.Dataset):
+    """Fetch the number of observations in a dataset."""
+    return tf.data.experimental.cardinality(dataset).numpy()
 
 class TabularDataset(ABC):
     """A class to represent tabular datasets."""
