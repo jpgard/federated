@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-class ModelConfig():
+class ModelConfig:
     def __init__(self, learning_rate):
         self.learning_rate = learning_rate
 
@@ -28,6 +28,3 @@ def create_compiled_keras_model(input_shape, model_config: ModelConfig):
             tf.keras.metrics.Recall()
         ])
     return model
-
-class Model():
-    def __init__(self, learning_rate, training_config):
