@@ -3,9 +3,7 @@ import tensorflow as tf
 
 # create a simple keras model
 def create_compiled_keras_model(input_shape):
-    # https://www.tensorflow.org/federated/tutorials
-    # /federated_learning_for_image_classification
-
+    """Create and compile a simple fully-connected Keras model."""
     model = tf.keras.models.Sequential([
         # preprocessing_layer,
         tf.keras.layers.BatchNormalization(center=True, scale=True,
@@ -20,5 +18,8 @@ def create_compiled_keras_model(input_shape):
         metrics=[
             tf.keras.metrics.BinaryCrossentropy(),
             tf.keras.metrics.BinaryAccuracy(),
+            tf.keras.metrics.AUC(),
+            tf.keras.metrics.Precision(),
+            tf.keras.metrics.Recall()
         ])
     return model
