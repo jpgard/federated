@@ -145,7 +145,8 @@ def execute_centralized_training(dataset, logdir: str, training_config: Training
     keras_model.fit_generator(
         generator=dataset_generator,
         steps_per_epoch=get_dataset_size(centralized_dataset)//training_config.batch_size,
-        epochs=training_config.epochs
+        epochs=training_config.epochs,
+        callbacks=[tf.keras.callbacks.TensorBoard(log_dir=logdir)]
     )
 
 
