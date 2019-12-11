@@ -4,10 +4,12 @@ Train a FedEd model.
 Usage (note the use of quites surrounding the wildcard path):
 
 python train_feded_model.py \
-    --data_fp "/Users/jpgard/Documents/github/federated/data/larc-split/train/train/train_4*.csv" \
-    --epochs 1 \
-    --batch_size 1024 \
-    --shuffle_buffer 500
+    --data_fp "./data/larc-split/train/train/train_4*.csv" \
+    --epochs 20 \
+    --batch_size 512 \
+    --shuffle_buffer 500 \
+    --batches_to_take 64 \
+    --num_train_clients 16
 
 """
 import argparse
@@ -29,11 +31,21 @@ from feded.datasets.larc import LarcDataset, DEFAULT_LARC_TARGET_COLNAME
 from feded.model import create_compiled_keras_model
 from feded.config import TrainingConfig
 from feded.federated import sample_client_ids
+from functools import partial
 
 
 def make_federated_data(client_data, client_ids, feature_layer, training_config):
-    return [preprocess(client_data.create_tf_dataset_for_client(x), feature_layer,
-                       training_config, DEFAULT_LARC_TARGET_COLNAME)
+    """
+    Apply preprocess to each client_id, but take only a single batch of training data.
+    """
+    preprocessing_fn = partial(preprocess,
+                               feature_layer=feature_layer,
+                               target_feature=DEFAULT_LARC_TARGET_COLNAME,
+                               num_epochs=1,
+                               shuffle_buffer=training_config.shuffle_buffer,
+                               batch_size=training_config.batch_size,
+                               batches_to_take=training_config.batches_to_take)
+    return [preprocessing_fn(client_data.create_tf_dataset_for_client(x))
             for x in client_ids]
 
 
@@ -61,9 +73,13 @@ def main(data_fp: str, training_config: TrainingConfig):
 
     # example_element = iter(example_dataset).next()
     # print(example_element)
-    preprocessed_example_dataset = preprocess(example_dataset, feature_layer,
-                                              training_config,
-                                              DEFAULT_LARC_TARGET_COLNAME)
+    preprocessed_example_dataset = preprocess(
+        example_dataset, feature_layer,
+        DEFAULT_LARC_TARGET_COLNAME,
+        num_epochs=training_config.epochs,
+        shuffle_buffer=training_config.shuffle_buffer,
+        batch_size=training_config.batch_size
+    )
 
     sample_batch = tf.nest.map_structure(
         lambda x: x.numpy(), iter(preprocessed_example_dataset).next())
@@ -100,8 +116,13 @@ if __name__ == "__main__":
     parser.add_argument("--num_train_clients", type=int,
                         help="number of clients to sample during each training step",
                         default=3)
+    parser.add_argument("--batches_to_take", type=int,
+                        help="number of batches to sample during each training step "
+                             "from selected clients",
+                        default=64)
     args = parser.parse_args()
     training_config = TrainingConfig(batch_size=args.batch_size, epochs=args.epochs,
                                      shuffle_buffer=args.shuffle_buffer,
-                                     num_train_clients=args.num_train_clients)
+                                     num_train_clients=args.num_train_clients,
+                                     batches_to_take=args.batches_to_take)
     main(args.data_fp, training_config)

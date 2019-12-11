@@ -2,24 +2,30 @@
 Functions for preprocessing data.
 """
 
-
 import collections
+import glob
 from pandas.api.types import is_numeric_dtype, is_object_dtype
-
+import pandas as pd
 import tensorflow as tf
 
-from feded.config import TrainingConfig
-
-import glob
-import pandas as pd
 
 
-def preprocess(dataset, feature_layer, training_config: TrainingConfig,
-               target_feature):
-    """Preprocess data with a single-element label (label of length one)."""
-    num_epochs = training_config.epochs
-    shuffle_buffer = training_config.shuffle_buffer
-    batch_size = training_config.batch_size
+def preprocess(dataset: tf.data.Dataset, feature_layer: tf.keras.layers,
+               target_feature: str,
+               num_epochs: int,
+               shuffle_buffer: int,
+               batch_size: int,
+               batches_to_take=None):
+    """
+    Preprocess data with a single-element label (label of length one).
+
+    :param dataset: the dataset to preprocess.
+    :param feature_layer: feature layer to use to preprocess the data.
+    :param target_feature: the name of the target feature (used to extract the correct
+    element from the input observations).
+    :param num_epochs: number of epochs to repeat for; by default, it is set to.
+    :return:
+    """
 
     def element_fn(element):
         # element_fn extracts feature and label vectors from each element;
@@ -31,8 +37,12 @@ def preprocess(dataset, feature_layer, training_config: TrainingConfig,
             ('y', tf.reshape(element[target_feature], [1])),
         ])
 
-    return dataset.repeat(num_epochs).map(element_fn).shuffle(shuffle_buffer).batch(
-        batch_size)
+    preprocessed_dataset = dataset.repeat(num_epochs).map(element_fn).shuffle(
+        shuffle_buffer).batch(batch_size)
+    if not batches_to_take:
+        return preprocessed_dataset
+    else:
+        return preprocessed_dataset.take(batches_to_take)
 
 
 def generate_categorical_feature_dict(df: pd.DataFrame, categorical_features: list):
@@ -91,14 +101,14 @@ def minmax_scale_numeric_columns(df: pd.DataFrame, columns: list):
         assert is_numeric_dtype(df[column]), "only pass numeric columns to minmax scaler"
         col_max = df[column].max()
         col_min = df[column].min()
-        if col_max == col_min: # case: no scaling needed; just center
+        if col_max == col_min:  # case: no scaling needed; just center
             df[column] = df[column] - col_min
-        else: # case: normal case; center and scale
+        else:  # case: normal case; center and scale
             df[column] = (df[column] - col_min) / col_max
     return df
 
 
-def generate_missing_value_indicator(df: pd.DataFrame, columns: list, fill_value = "NA"):
+def generate_missing_value_indicator(df: pd.DataFrame, columns: list, fill_value="NA"):
     """Fill any na values in columns with fill_value."""
     for column in columns:
         if not is_object_dtype(df[column]):
