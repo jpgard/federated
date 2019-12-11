@@ -1,4 +1,5 @@
 import tensorflow as tf
+from feded.training import t
 
 
 class ModelConfig():
@@ -28,3 +29,6 @@ def create_compiled_keras_model(input_shape, model_config: ModelConfig):
             tf.keras.metrics.Recall()
         ])
     return model
+
+class Model():
+    def __init__(self, learning_rate, training_config):
