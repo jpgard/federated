@@ -30,7 +30,7 @@ from feded.preprocessing import preprocess
 from feded.datasets.larc import LarcDataset, DEFAULT_LARC_TARGET_COLNAME
 from feded.training.model import create_compiled_keras_model, ModelConfig
 from feded.training import TrainingConfig
-from feded.util.sampling import sample_client_ids
+from feded.util.sampling import sample_client_ids, client_train_test_split
 from functools import partial
 
 
@@ -77,13 +77,14 @@ def main(data_fp: str, logdir: str, training_config: TrainingConfig,
         x, training_config=training_config)
     feature_layer = dataset.make_feature_layer()
 
-    client_ids = dataset.client_ids
+    train_client_ids, test_client_ids = client_train_test_split(
+        dataset.client_ids, train_size=0.75, random_state=49853)
     feded_train = tff.simulation.ClientData.from_clients_and_fn(
-        client_ids=client_ids,
+        client_ids=train_client_ids,
         create_tf_dataset_for_client_fn=create_tf_dataset_for_client_fn
     )
     feded_test = tff.simulation.ClientData.from_clients_and_fn(
-        client_ids=client_ids,
+        client_ids=test_client_ids,
         create_tf_dataset_for_client_fn=create_tf_dataset_for_client_fn
     )
 
@@ -99,10 +100,9 @@ def main(data_fp: str, logdir: str, training_config: TrainingConfig,
     print(iterative_process.initialize.type_signature)
     state = iterative_process.initialize()
 
-    # fetch the federated training data and execute an iteration of training
-    train_client_ids = feded_train.client_ids
-    # evaluation = tff.learning.build_federated_evaluation(model_fn)
+    # Conduct the federated training.
     summary_writer = tf.summary.create_file_writer(logdir)
+    # evaluation = tff.learning.build_federated_evaluation(model_fn)
     for i in range(training_config.epochs):
         client_ids = sample_client_ids(train_client_ids,
                                        training_config.num_train_clients, method="random")
