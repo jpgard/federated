@@ -1,5 +1,4 @@
 import tensorflow as tf
-from feded.training import t
 
 
 class ModelConfig():

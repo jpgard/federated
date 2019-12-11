@@ -70,7 +70,7 @@ def make_sample_batch(dataset, feature_layer):
 
 def main(data_fp: str, logdir: str, training_config: TrainingConfig,
          model_config: ModelConfig):
-    # # fetch and preprocess the data
+    # fetch and preprocess the data, and construct federated datasets
     dataset = LarcDataset()
     dataset.read_data(data_fp)
     create_tf_dataset_for_client_fn = lambda x: dataset.create_tf_dataset_for_client(
