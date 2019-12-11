@@ -28,7 +28,7 @@ if six.PY3:
 
 from feded.preprocessing import preprocess
 from feded.datasets.larc import LarcDataset, DEFAULT_LARC_TARGET_COLNAME
-from feded.training.model import create_compiled_keras_model
+from feded.training.model import create_compiled_keras_model, ModelConfig
 from feded.config import TrainingConfig
 from feded.federated import sample_client_ids
 from functools import partial
@@ -68,8 +68,8 @@ def make_sample_batch(dataset, feature_layer):
     return sample_batch
 
 
-
-def main(data_fp: str, logdir:str, training_config: TrainingConfig):
+def main(data_fp: str, logdir: str, training_config: TrainingConfig,
+         model_config: ModelConfig):
     # # fetch and preprocess the data
     dataset = LarcDataset()
     dataset.read_data(data_fp)
@@ -91,7 +91,7 @@ def main(data_fp: str, logdir:str, training_config: TrainingConfig):
 
     def model_fn():
         keras_model = create_compiled_keras_model(
-            input_shape=(sample_batch['x'].shape[1],))
+            input_shape=(sample_batch['x'].shape[1],), model_config=model_config)
         return tff.learning.from_compiled_keras_model(keras_model, sample_batch)
 
     iterative_process = tff.learning.build_federated_averaging_process(
@@ -102,7 +102,7 @@ def main(data_fp: str, logdir:str, training_config: TrainingConfig):
     # fetch the federated training data and execute an iteration of training
     train_client_ids = feded_train.client_ids
     # evaluation = tff.learning.build_federated_evaluation(model_fn)
-
+    summary_writer = tf.summary.create_file_writer(logdir)
     for i in range(training_config.epochs):
         client_ids = sample_client_ids(train_client_ids,
                                        training_config.num_train_clients, method="random")
@@ -115,7 +115,9 @@ def main(data_fp: str, logdir:str, training_config: TrainingConfig):
         # test_metrics = evaluation(state.model, epoch_federated_test_data)
         print('round  {}, train_metrics={}'.format(i, train_metrics))
         # print('round  {}, test_metrics={}'.format(i, test_metrics))
-
+        with summary_writer.as_default():
+            for name, metric in train_metrics._asdict().items():
+                tf.summary.scalar(name, metric, step=i)
 
 
 if __name__ == "__main__":
@@ -132,9 +134,11 @@ if __name__ == "__main__":
                              "from selected clients",
                         default=64)
     parser.add_argument("--logdir", default="./tmp/logdir/")
+    parser.add_argument("--lr", type=float, default=0.001, help="learning rate")
     args = parser.parse_args()
     training_config = TrainingConfig(batch_size=args.batch_size, epochs=args.epochs,
                                      shuffle_buffer=args.shuffle_buffer,
                                      num_train_clients=args.num_train_clients,
                                      batches_to_take=args.batches_to_take)
-    main(args.data_fp, args.logdir, training_config)
+    model_config = ModelConfig(learning_rate=args.lr)
+    main(args.data_fp, args.logdir, training_config, model_config)
