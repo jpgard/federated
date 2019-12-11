@@ -9,7 +9,9 @@ python train_feded_model.py \
     --batch_size 512 \
     --shuffle_buffer 500 \
     --batches_to_take 64 \
-    --num_train_clients 16
+    --num_train_clients 16 \
+    --train_federated \
+    --train_centralized
 
 """
 import argparse
@@ -68,11 +70,9 @@ def make_sample_batch(dataset, feature_layer):
     return sample_batch
 
 
-def main(data_fp: str, logdir: str, training_config: TrainingConfig,
+def execute_federated_training(dataset, logdir: str, training_config: TrainingConfig,
          model_config: ModelConfig):
-    # fetch and preprocess the data, and construct federated datasets
-    dataset = LarcDataset()
-    dataset.read_data(data_fp)
+    """Execute a run of federated training."""
     create_tf_dataset_for_client_fn = lambda x: dataset.create_tf_dataset_for_client(
         x, training_config=training_config)
     feature_layer = dataset.make_feature_layer()
@@ -120,6 +120,18 @@ def main(data_fp: str, logdir: str, training_config: TrainingConfig,
                 tf.summary.scalar(name, metric, step=i)
 
 
+
+def main(data_fp: str, logdir: str, training_config: TrainingConfig,
+         model_config: ModelConfig, train_federated: True, train_centralized: True):
+    # fetch and preprocess the data, and construct federated datasets
+    dataset = LarcDataset()
+    dataset.read_data(data_fp)
+    if train_federated:
+        execute_federated_training(dataset, logdir, training_config, model_config)
+    if train_centralized:
+        pass
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_fp", help="path to data csv")
@@ -135,10 +147,15 @@ if __name__ == "__main__":
                         default=64)
     parser.add_argument("--logdir", default="./tmp/logdir/")
     parser.add_argument("--lr", type=float, default=0.001, help="learning rate")
+    parser.add_argument("--train_federated", action="store_true", default=False,
+                        help="indicator for whether to train a federated model")
+    parser.add_argument("--train_centralized", action="store_true", default=False,
+                        help="indicator for whether to train a centralized model")
     args = parser.parse_args()
     training_config = TrainingConfig(batch_size=args.batch_size, epochs=args.epochs,
                                      shuffle_buffer=args.shuffle_buffer,
                                      num_train_clients=args.num_train_clients,
                                      batches_to_take=args.batches_to_take)
     model_config = ModelConfig(learning_rate=args.lr)
-    main(args.data_fp, args.logdir, training_config, model_config)
+    main(args.data_fp, args.logdir, training_config, model_config, args.train_federated,
+         args.train_centralized)
