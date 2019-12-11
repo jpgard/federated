@@ -12,9 +12,3 @@ class TrainingConfig:
         self.shuffle_buffer = shuffle_buffer
         self.num_train_clients = num_train_clients
         self.batches_to_take = batches_to_take
-
-
-class FeatureConfig: #TODO(jpgard): holds a set of features and various configurations
-    # (e.g. values, dtype, handling of missing data, filtering, etc).
-    def __init__(self):
-        pass
