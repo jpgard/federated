@@ -29,7 +29,7 @@ if six.PY3:
 from feded.preprocessing import preprocess
 from feded.datasets.larc import LarcDataset, DEFAULT_LARC_TARGET_COLNAME
 from feded.training.model import create_compiled_keras_model, ModelConfig
-from feded.config import TrainingConfig
+from feded.training import TrainingConfig
 from feded.util.sampling import sample_client_ids
 from functools import partial
 

@@ -5,7 +5,7 @@ Functions and classes to represent datasets.
 from abc import ABC, abstractmethod
 from typing import Optional, List
 
-from feded.config import TrainingConfig
+from feded.training import TrainingConfig
 
 
 class TabularDataset(ABC):

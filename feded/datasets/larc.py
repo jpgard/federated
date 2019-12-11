@@ -5,7 +5,7 @@ from typing import List
 import numpy as np
 import tensorflow as tf
 
-from feded.config import TrainingConfig
+from feded.training import TrainingConfig
 from feded.datasets import TabularDataset
 from feded.preprocessing import read_csv, filter_df_by_values, \
     make_binary_indicator_column, generate_categorical_feature_dict, \
