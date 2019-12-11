@@ -28,7 +28,7 @@ if six.PY3:
 
 from feded.preprocessing import preprocess
 from feded.datasets.larc import LarcDataset, DEFAULT_LARC_TARGET_COLNAME
-from feded.model import create_compiled_keras_model
+from feded.training.model import create_compiled_keras_model
 from feded.config import TrainingConfig
 from feded.federated import sample_client_ids
 from functools import partial
@@ -69,7 +69,7 @@ def make_sample_batch(dataset, feature_layer):
 
 
 
-def main(data_fp: str, training_config: TrainingConfig):
+def main(data_fp: str, logdir:str, training_config: TrainingConfig):
     # # fetch and preprocess the data
     dataset = LarcDataset()
     dataset.read_data(data_fp)
@@ -131,9 +131,10 @@ if __name__ == "__main__":
                         help="number of batches to sample during each training step "
                              "from selected clients",
                         default=64)
+    parser.add_argument("--logdir", default="./tmp/logdir/")
     args = parser.parse_args()
     training_config = TrainingConfig(batch_size=args.batch_size, epochs=args.epochs,
                                      shuffle_buffer=args.shuffle_buffer,
                                      num_train_clients=args.num_train_clients,
                                      batches_to_take=args.batches_to_take)
-    main(args.data_fp, training_config)
+    main(args.data_fp, args.logdir, training_config)
