@@ -29,6 +29,7 @@ if six.PY3:
         tff.framework.create_local_executor())
 
 from feded.preprocessing import preprocess
+from feded.datasets import get_dataset_size
 from feded.datasets.larc import LarcDataset, DEFAULT_LARC_TARGET_COLNAME
 from feded.training.model import create_compiled_keras_model, ModelConfig
 from feded.training import TrainingConfig
@@ -52,13 +53,10 @@ def make_federated_data(client_data, client_ids, feature_layer, training_config)
 
 
 def make_sample_batch(dataset, feature_layer):
-    """Make a sample batch from a randomly-selected client id."""
-    example_dataset = dataset.create_tf_dataset_for_client(
-        dataset.client_ids[0]
-    )
+    """Make a sample batch from a dataset using the feature_layer."""
     # preprocess the dataset
     preprocessed_example_dataset = preprocess(
-        example_dataset, feature_layer,
+        dataset, feature_layer,
         DEFAULT_LARC_TARGET_COLNAME,
         num_epochs=training_config.epochs,
         shuffle_buffer=training_config.shuffle_buffer,
@@ -71,7 +69,7 @@ def make_sample_batch(dataset, feature_layer):
 
 
 def execute_federated_training(dataset, logdir: str, training_config: TrainingConfig,
-         model_config: ModelConfig):
+                               model_config: ModelConfig):
     """Execute a run of federated training."""
     create_tf_dataset_for_client_fn = lambda x: dataset.create_tf_dataset_for_client(
         x, training_config=training_config)
@@ -87,8 +85,10 @@ def execute_federated_training(dataset, logdir: str, training_config: TrainingCo
         client_ids=test_client_ids,
         create_tf_dataset_for_client_fn=create_tf_dataset_for_client_fn
     )
-
-    sample_batch = make_sample_batch(feded_train, feature_layer)
+    example_dataset = dataset.create_tf_dataset_for_client(
+        feded_train.client_ids[0]
+    )
+    sample_batch = make_sample_batch(example_dataset, feature_layer)
 
     def model_fn():
         keras_model = create_compiled_keras_model(
@@ -120,6 +120,34 @@ def execute_federated_training(dataset, logdir: str, training_config: TrainingCo
                 tf.summary.scalar(name, metric, step=i)
 
 
+def execute_centralized_training(dataset, logdir: str, training_config: TrainingConfig,
+                                 model_config: ModelConfig):
+    target_feature = DEFAULT_LARC_TARGET_COLNAME
+    batch_size = training_config.batch_size
+    centralized_dataset = dataset.create_tf_dataset(training_config)
+    feature_layer = dataset.make_feature_layer()
+    sample_batch = make_sample_batch(centralized_dataset, feature_layer)
+    keras_model = create_compiled_keras_model(
+        input_shape=(sample_batch['x'].shape[1],), model_config=model_config)
+    def _make_dataset_generator(dataset):
+        """Create a generator to yield (x,y) batches for training the model."""
+        batched_training_data = dataset.repeat(training_config.epochs).shuffle(
+                training_config.shuffle_buffer).batch(
+                training_config.batch_size)
+        for element in batched_training_data:
+            # extracts feature and label vectors from each element;
+            # 'x' and 'y' names are required by keras.
+            feature_vector = feature_layer(element)
+            x = tf.reshape(feature_vector, [-1, feature_vector.shape[1]])
+            y = tf.reshape(element[target_feature], [-1, 1])
+            yield (x, y)
+    dataset_generator = _make_dataset_generator(centralized_dataset)
+    keras_model.fit_generator(
+        generator=dataset_generator,
+        steps_per_epoch=get_dataset_size(centralized_dataset)//training_config.batch_size,
+        epochs=training_config.epochs
+    )
+
 
 def main(data_fp: str, logdir: str, training_config: TrainingConfig,
          model_config: ModelConfig, train_federated: True, train_centralized: True):
@@ -129,7 +157,7 @@ def main(data_fp: str, logdir: str, training_config: TrainingConfig,
     if train_federated:
         execute_federated_training(dataset, logdir, training_config, model_config)
     if train_centralized:
-        pass
+        execute_centralized_training(dataset, logdir, training_config, model_config)
 
 
 if __name__ == "__main__":
