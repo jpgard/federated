@@ -3,11 +3,11 @@ Train a FedEd model.
 
 Usage (note the use of quites surrounding the wildcard path):
 
-python train_feded_model.py \
+python train.py \
     --data_fp "./data/larc-split/train/train/train_4*.csv" \
     --epochs 20 \
     --batch_size 512 \
-    --shuffle_buffer 500 \
+    --shuffle_buffer 5000 \
     --batches_to_take 64 \
     --num_train_clients 16 \
     --train_federated \
@@ -86,7 +86,7 @@ def execute_federated_training(dataset, logdir: str, training_config: TrainingCo
         create_tf_dataset_for_client_fn=create_tf_dataset_for_client_fn
     )
     example_dataset = dataset.create_tf_dataset_for_client(
-        feded_train.client_ids[0]
+        feded_train.client_ids[0], training_config=training_config
     )
     sample_batch = make_sample_batch(example_dataset, feature_layer)
 
