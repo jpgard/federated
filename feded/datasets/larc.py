@@ -2,6 +2,7 @@ import itertools
 from typing import List
 
 import numpy as np
+from sklearn.utils import shuffle
 import tensorflow as tf
 
 from feded.training import TrainingConfig
@@ -147,6 +148,8 @@ class LarcDataset(TabularDataset):
         df.dropna(inplace=True)
         print("[INFO] dataset rows after dropping NAs: {}".format(df.shape[0]))
         df = minmax_scale_numeric_columns(df, self.numeric_columns)
+        # shuffle the data
+        df = shuffle(df)
         print("final preprocessed dataset description:")
         print(df.describe(include='all').T.sort_values(by='unique'))
         return df
