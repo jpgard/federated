@@ -1,5 +1,4 @@
 import itertools
-import re
 from typing import List
 
 import numpy as np
@@ -88,7 +87,7 @@ LARC_VALID_GRADES = [''.join(x) for x in itertools.product(['A', 'B', 'C', 'D', 
 
 # A+, A, A-, B+, ...
 # The "passing" grades; these are the positive labels
-LARC_PASSING_GRADES = [g for g in LARC_VALID_GRADES if re.match("[ABC].*", g)]
+LARC_POS_GRADES = ['A+', 'A', 'A-', 'B+','B']
 
 
 class LarcDataset(TabularDataset):
@@ -137,7 +136,7 @@ class LarcDataset(TabularDataset):
         print("[INFO] raw dataset rows: {}".format(df.shape[0]))
         df = filter_df_by_values(df, self.target_column, LARC_VALID_GRADES)
         df = make_binary_indicator_column(df, self.target_column,
-                                          positive_vals=LARC_PASSING_GRADES, replace=True)
+                                          positive_vals=LARC_POS_GRADES, replace=True)
         print("[INFO] dataset rows after target filtering: {}".format(df.shape[0]))
         print("[INFO]: label value counts:")
         print(df[self.target_column].value_counts())
