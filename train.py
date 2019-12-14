@@ -7,8 +7,7 @@ python train.py \
     --data_fp "./data/larc-split/train/train/train_4*.csv" \
     --epochs 20 \
     --batch_size 512 \
-    --shuffle_buffer 5000 \
-    --batches_to_take 64 \
+    --batches_to_take 128 \
     --num_train_clients 16 \
     --train_federated \
     --train_centralized
@@ -166,7 +165,11 @@ if __name__ == "__main__":
     parser.add_argument("--data_fp", help="path to data csv")
     parser.add_argument("--epochs", type=int, help="number of training epochs")
     parser.add_argument("--batch_size", type=int, help="batch size for training")
-    parser.add_argument("--shuffle_buffer", type=int, help="shuffle buffer", default=500)
+    parser.add_argument("--shuffle_buffer", type=int,
+                        help="shuffle buffer; note that in-memory datasets should be "
+                             "shuffled before modeling/batching (e.g. at read time) for "
+                             "best results.",
+                        default=100)
     parser.add_argument("--num_train_clients", type=int,
                         help="number of clients to sample during each training step",
                         default=3)
