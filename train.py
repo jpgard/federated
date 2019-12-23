@@ -122,7 +122,6 @@ def execute_federated_training(dataset, logdir: str, training_config: TrainingCo
 def execute_centralized_training(dataset, logdir: str, training_config: TrainingConfig,
                                  model_config: ModelConfig):
     target_feature = DEFAULT_LARC_TARGET_COLNAME
-    batch_size = training_config.batch_size
     centralized_dataset = dataset.create_tf_dataset(training_config)
     feature_layer = dataset.make_feature_layer()
     sample_batch = make_sample_batch(centralized_dataset, feature_layer)
