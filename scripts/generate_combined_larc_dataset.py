@@ -42,6 +42,15 @@ def read_csv_from_bz2(fp, index_cols, **read_csv_args):
     return df
 
 
+def check_single_snapshot(df: pd.DataFrame):
+    """Verify that there is only one database snapshot represented in the df.
+
+    If this check fails, SNPSHT_RPT_DT should be added as an index for proper joining.
+    """
+    if "SNPSHT_RPT_DT" in df.columns:
+        assert df["SNPSHT_RPT_DT"].nunique() == 1
+
+
 def main(stdnt_info_fp,
          stdnt_term_class_info_fp,
          stdnt_term_info_fp,
@@ -70,37 +79,41 @@ def main(stdnt_info_fp,
     }
 
     stdnt_info = read_csv_from_bz2(
-        stdnt_info_fp, index_cols=("SNPSHT_RPT_DT", "STDNT_ID"), **read_csv_args)
+        stdnt_info_fp, index_cols=("STDNT_ID",), **read_csv_args)
     stdnt_term_class_info = read_csv_from_bz2(
         stdnt_term_class_info_fp,
-        index_cols=("SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID", "CLASS_NBR"),
+        index_cols=("TERM_CD", "STDNT_ID", "CLASS_NBR"),
         **read_csv_args)
     # drop the duplicated and redundant column when reading stdnt_term_info
     stdnt_term_info = read_csv_from_bz2(
         stdnt_term_info_fp,
-        index_cols=("SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID"),
+        index_cols=("TERM_CD", "STDNT_ID"),
         **read_csv_args).drop(columns="TERM_SHORT_DES")
+
+    for df in (stdnt_info, stdnt_term_class_info, stdnt_term_info):
+        check_single_snapshot(df)
+        df.drop(columns="SNPSHT_RPT_DT", inplace=True)
 
     # we want a student-term-class level dataset; join the other data onto this df
     larc = stdnt_term_class_info \
-        .join(stdnt_term_info, how="left", on=("SNPSHT_RPT_DT", "STDNT_ID", "TERM_CD")) \
-        .join(stdnt_info, how="left", on=("SNPSHT_RPT_DT", "STDNT_ID"))
+        .join(stdnt_term_info, how="left", on=("STDNT_ID", "TERM_CD")) \
+        .join(stdnt_info, how="left", on=("STDNT_ID",))
     if prsn_identifying_info_fp:
         print("[INFO] reading {}".format(prsn_identifying_info_fp))
         # for this table, we rename column PRSN_ID before setting the index
         prsn_identifying_info = pd.read_csv(
-            prsn_identifying_info_fp, index_col=["SNPSHT_RPT_DT", "STDNT_ID"],
+            prsn_identifying_info_fp, index_col=["STDNT_ID", ],
             **read_csv_args).rename(
             columns={"PRSN_ID": "STDNT_ID"}) \
             .astype({"STDNT_ID": "int64"})
 
-        larc = larc.join(prsn_identifying_info, how="left", on=("SNPSHT_RPT_DT",
-                                                                "STDNT_ID"))
+        larc = larc.join(prsn_identifying_info, how="left", on=("STDNT_ID",))
     if stdnt_term_trnsfr_info_fp:
         print("[ERROR] transfer data join not implemented")
         raise NotImplementedError
     larc.reset_index(inplace=True)
-    import ipdb;ipdb.set_trace()
+    import ipdb;
+    ipdb.set_trace()
     # ensure no data is lost or duplicated in joins
     assert len(larc) == len(stdnt_term_class_info)
     if not generate_ttv:  # write the entire dataset
