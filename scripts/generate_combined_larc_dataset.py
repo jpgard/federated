@@ -39,7 +39,8 @@ TEST_VAL_TERM_CDS = {
 def read_csv_from_bz2(fp, index_cols, **read_csv_args):
     print("[INFO] reading {}".format(fp))
     with bz2.open(fp) as file:
-        df = pd.read_csv(file, index_col=index_cols, **read_csv_args)
+        df = pd.read_csv(file, index_col=index_cols, **read_csv_args).rename(
+            columns={"#SNPSHT_RPT_DT": "SNPSHT_RPT_DT"})
     return df
 
 
@@ -84,15 +85,15 @@ def main(stdnt_info_fp,
     }
 
     stdnt_info = read_csv_from_bz2(
-        stdnt_info_fp, index_cols=("STDNT_ID",), **read_csv_args)
+        stdnt_info_fp, index_cols=("#SNPSHT_RPT_DT", "STDNT_ID",), **read_csv_args)
     stdnt_term_class_info = read_csv_from_bz2(
         stdnt_term_class_info_fp,
-        index_cols=("TERM_CD", "STDNT_ID", "CLASS_NBR"),
+        index_cols=("#SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID", "CLASS_NBR"),
         **read_csv_args)
     # drop the duplicated and redundant column when reading stdnt_term_info
     stdnt_term_info = read_csv_from_bz2(
         stdnt_term_info_fp,
-        index_cols=("TERM_CD", "STDNT_ID"),
+        index_cols=("#SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID"),
         **read_csv_args).drop(columns="TERM_SHORT_DES")
 
     for df in (stdnt_info, stdnt_term_class_info, stdnt_term_info):
