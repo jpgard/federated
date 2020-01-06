@@ -157,7 +157,8 @@ def main(data_fp: str, logdir: str, training_config: TrainingConfig,
     dataset.read_data(data_fp)
     if train_federated:
         federated_logdir = os.path.join(logdir, "federated")
-        execute_federated_training(dataset, logdir, training_config, model_config)
+        execute_federated_training(dataset, federated_logdir, training_config,
+                                   model_config)
     if train_centralized:
         centralized_logdir = os.path.join(logdir, "centralized")
         execute_centralized_training(dataset, centralized_logdir, training_config,
