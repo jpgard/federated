@@ -13,13 +13,14 @@ python scripts/generate_combined_larc_dataset.py \
 """
 
 import argparse
+import bz2
+import numpy as np
 import os
 import os.path as osp
-import bz2
 
 import pandas as pd
 
-TERM_CDS = {
+TEST_VAL_TERM_CDS = {
     # the term codes to use for the validation dataset; should be the second-to-last full
     # academic year in the dataset
     "val": [
@@ -42,13 +43,15 @@ def read_csv_from_bz2(fp, index_cols, **read_csv_args):
     return df
 
 
-def check_single_snapshot(df: pd.DataFrame):
+def check_single_snapshot(df: pd.DataFrame, drop=True):
     """Verify that there is only one database snapshot represented in the df.
 
     If this check fails, SNPSHT_RPT_DT should be added as an index for proper joining.
     """
     if "SNPSHT_RPT_DT" in df.columns:
         assert df["SNPSHT_RPT_DT"].nunique() == 1
+        if drop:
+            df.drop(columns="SNPSHT_RPT_DT", inplace=True)
 
 
 def main(stdnt_info_fp,
@@ -57,7 +60,8 @@ def main(stdnt_info_fp,
          outdir,
          prsn_identifying_info_fp=None,
          stdnt_term_trnsfr_info_fp=None,
-         generate_ttv=False
+         generate_ttv=False,
+         n_train=100
          ):
     """
     Generate a combined dataset by merging the CSV files along the correct indices.
@@ -68,6 +72,7 @@ def main(stdnt_info_fp,
     :param prsn_identifying_info_fp:
     :param stdnt_term_trnsfr_info_fp:
     :param generate_ttv: boolean indicator for whether to generate train-test-val split.
+    :param n_train: number of CSVs to divide training data among.
     :return:
     """
 
@@ -92,9 +97,9 @@ def main(stdnt_info_fp,
 
     for df in (stdnt_info, stdnt_term_class_info, stdnt_term_info):
         check_single_snapshot(df)
-        df.drop(columns="SNPSHT_RPT_DT", inplace=True)
 
     # we want a student-term-class level dataset; join the other data onto this df
+    print("[INFO] joining datasets")
     larc = stdnt_term_class_info \
         .join(stdnt_term_info, how="left", on=("STDNT_ID", "TERM_CD")) \
         .join(stdnt_info, how="left", on=("STDNT_ID",))
@@ -112,8 +117,7 @@ def main(stdnt_info_fp,
         print("[ERROR] transfer data join not implemented")
         raise NotImplementedError
     larc.reset_index(inplace=True)
-    import ipdb;
-    ipdb.set_trace()
+
     # ensure no data is lost or duplicated in joins
     assert len(larc) == len(stdnt_term_class_info)
     if not generate_ttv:  # write the entire dataset
@@ -124,19 +128,27 @@ def main(stdnt_info_fp,
         # cutoff_term_cd is the first val/test term; no training data should be taken
         # from any temporal period after this term, even if it is not one of the
         # specified val/test terms.
+        cutoff_term_cd = min([int(t) for key in TEST_VAL_TERM_CDS.values() for t in key])
 
-        cutoff_term_cd = min([int(t) for key in TERM_CDS.values() for t in key])
         for mode in ("train", "test", "val"):  # create the directories
             mode_out_dir = osp.join(outdir, mode)
-            mode_out_fp = osp.join(mode_out_dir, mode + ".csv")
             if not osp.exists(mode_out_dir):
                 os.mkdir(mode_out_dir)
             if mode == "train":
-                # filter the data using cutoff_term_cd
-                larc[larc["TERM_CD"].astype(int) < cutoff_term_cd] \
-                    .to_csv(mode_out_fp, index=False)
+                # Filter the data using cutoff_term_cd
+                train_df = larc[larc["TERM_CD"].astype(int) < cutoff_term_cd]
+                # Shuffle the training data in place and reset the index
+                train_df = train_df.sample(frac=1).reset_index(drop=True)
+                # Write the results to separate training files
+                for i in range(n_train):
+                    mode_out_fp = osp.join(mode_out_dir, "train_{}.csv".format(i))
+                    print("[INFO] writing to {}".format(mode_out_fp))
+                    train_df[np.arange(len(train_df)) % n_train == 0].to_csv(mode_out_fp,
+                                                                             index=False)
             else:  # mode is val or test; write that data
-                larc[larc["TERM_CD"].isin(TERM_CDS[mode])] \
+                mode_out_fp = osp.join(mode_out_dir, mode + ".csv")
+                print("[INFO] writing to {}".format(mode_out_fp))
+                larc[larc["TERM_CD"].isin(TEST_VAL_TERM_CDS[mode])] \
                     .to_csv(mode_out_fp, index=False)
 
 
@@ -151,5 +163,7 @@ if __name__ == "__main__":
                         required=False)  # currently unused
     parser.add_argument("--outdir", help="directory to write dataset to")
     parser.add_argument("--generate_ttv", action="store_true", default=False)
+    parser.add_argument("--n_train", help="number of training csvs to generate",
+                        type=int)
     args = parser.parse_args()
     main(**vars(args))
