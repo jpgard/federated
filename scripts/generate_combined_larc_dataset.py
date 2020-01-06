@@ -100,7 +100,7 @@ def main(stdnt_info_fp,
         print("[ERROR] transfer data join not implemented")
         raise NotImplementedError
     larc.reset_index(inplace=True)
-    import ipdbl;ipdb.set_trace()
+    import ipdb;ipdb.set_trace()
     # ensure no data is lost or duplicated in joins
     assert len(larc) == len(stdnt_term_class_info)
     if not generate_ttv:  # write the entire dataset
