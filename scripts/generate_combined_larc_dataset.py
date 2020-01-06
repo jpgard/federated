@@ -138,7 +138,8 @@ def main(stdnt_info_fp,
                 # Filter the data using cutoff_term_cd
                 train_df = larc[larc["TERM_CD"].astype(int) < cutoff_term_cd]
                 # Shuffle the training data in place and reset the index
-                train_df = train_df.sample(frac=1).reset_index(drop=True)
+                train_df = train_df.sample(frac=1, random_state=47895).reset_index(
+                    drop=True)
                 # Write the results to separate training files
                 for i in range(n_train):
                     mode_out_fp = osp.join(mode_out_dir, "train_{}.csv".format(i))
