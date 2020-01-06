@@ -10,9 +10,8 @@ from feded.datasets import TabularDataset
 from feded.preprocessing import read_csv, filter_df_by_values, \
     make_binary_indicator_column, generate_categorical_feature_dict, \
     minmax_scale_numeric_columns, generate_missing_value_indicator
-from feded.preprocessing.larc import make_prev_term_gpa_column
-# the prediction target
 
+# the prediction target
 DEFAULT_LARC_TARGET_COLNAME = "CRSE_GRD_OFFCL_CD"
 
 # the column to use for generating clients; this should be a column which universities
@@ -149,7 +148,6 @@ class LarcDataset(TabularDataset):
         df.dropna(inplace=True)
         print("[INFO] dataset rows after dropping NAs: {}".format(df.shape[0]))
         df = minmax_scale_numeric_columns(df, self.numeric_columns)
-        df = make_prev_term_gpa_column(df)
         # shuffle the data
         df = shuffle(df)
         print("final preprocessed dataset description:")
