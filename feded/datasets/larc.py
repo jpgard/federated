@@ -10,7 +10,7 @@ from feded.datasets import TabularDataset
 from feded.preprocessing import read_csv, filter_df_by_values, \
     make_binary_indicator_column, generate_categorical_feature_dict, \
     minmax_scale_numeric_columns, generate_missing_value_indicator
-
+from feded.preprocessing.larc import make_prev_term_gpa_column
 # the prediction target
 
 DEFAULT_LARC_TARGET_COLNAME = "CRSE_GRD_OFFCL_CD"
@@ -70,8 +70,9 @@ DEFAULT_LARC_NUMERIC_FEATURES = [  # numeric and binary features
     "CMBN_CLASS_ENRL_TOTAL_NBR",  # Combined Class Enrollment Total Number
     # "EXCL_CLASS_CUM_GPA",
     "HS_GPA",  # High School Grade Point Average
+    # TODO(jpgard): PREV_TERM_CUM_GPA should be included as a feature!
     # "PREV_TERM_CUM_GPA",  # Previous Term Cumulative Grade Point Average
-    "STDNT_BIRTH_YR",  # Student Birth Year TODO(jpgard): take (birth year - term year)
+    # "STDNT_BIRTH_YR",  # Student Birth Year TODO(jpgard): take (birth year - term year)
     # to obtain an additional feature for approximate age
     "TERM_CD",  # Term Code
 ]
@@ -148,6 +149,7 @@ class LarcDataset(TabularDataset):
         df.dropna(inplace=True)
         print("[INFO] dataset rows after dropping NAs: {}".format(df.shape[0]))
         df = minmax_scale_numeric_columns(df, self.numeric_columns)
+        df = make_prev_term_gpa_column(df)
         # shuffle the data
         df = shuffle(df)
         print("final preprocessed dataset description:")
