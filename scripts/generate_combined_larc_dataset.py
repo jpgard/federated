@@ -10,6 +10,7 @@ python scripts/generate_combined_larc_dataset.py \
     --stdnt_term_info_fp data/LARC/LARC_20190924_STDNT_TERM_INFO.csv.bz2 \
     --outdir data/larc-split/ \
     --generate_ttv
+
 """
 
 import argparse
@@ -36,7 +37,7 @@ TEST_VAL_TERM_CDS = {
 }
 
 
-def read_csv_from_bz2(fp, index_cols, **read_csv_args):
+def read_csv_from_bz2(fp, index_cols: list, **read_csv_args):
     print("[INFO] reading {}".format(fp))
     with bz2.open(fp) as file:
         df = pd.read_csv(file, **read_csv_args).rename(
@@ -87,15 +88,15 @@ def main(stdnt_info_fp,
     }
 
     stdnt_info = read_csv_from_bz2(
-        stdnt_info_fp, index_cols=("SNPSHT_RPT_DT", "STDNT_ID",), **read_csv_args)
+        stdnt_info_fp, index_cols=["SNPSHT_RPT_DT", "STDNT_ID",], **read_csv_args)
     stdnt_term_class_info = read_csv_from_bz2(
         stdnt_term_class_info_fp,
-        index_cols=("SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID", "CLASS_NBR"),
+        index_cols=["SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID", "CLASS_NBR"],
         **read_csv_args)
     # drop the duplicated and redundant column when reading stdnt_term_info
     stdnt_term_info = read_csv_from_bz2(
         stdnt_term_info_fp,
-        index_cols=("SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID"),
+        index_cols=["SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID"],
         **read_csv_args).drop(columns="TERM_SHORT_DES")
 
     # for df in (stdnt_info, stdnt_term_class_info, stdnt_term_info):
@@ -109,8 +110,8 @@ def main(stdnt_info_fp,
     if prsn_identifying_info_fp:
         print("[INFO] reading {}".format(prsn_identifying_info_fp))
         # for this table, we rename column PRSN_ID before setting the index
-        prsn_identifying_info = pd.read_csv(
-            prsn_identifying_info_fp, index_col=["SNPSHT_RPT_DT", "STDNT_ID"],
+        prsn_identifying_info = read_csv_from_bz2(
+            prsn_identifying_info_fp, index_cols=["SNPSHT_RPT_DT", "STDNT_ID"],
             **read_csv_args).rename(
             columns={"PRSN_ID": "STDNT_ID"}) \
             .astype({"STDNT_ID": "int64"})
