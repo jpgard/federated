@@ -67,9 +67,9 @@ def make_binary_indicator_column(df: pd.DataFrame, colname: str, positive_vals: 
                                  replace=False, newname=None):
     """Create a binary indicator column where rows with values for colname which are in
         positive_vals take a value of 1 and all others take 0."""
-    binary_indicator = df[colname].isin(positive_vals).astype(int)
+    binary_indicator = df.loc[:, colname].isin(positive_vals).astype(int)
     if replace:
-        df[colname] = binary_indicator
+        df.loc[:, colname] = binary_indicator
     else:
         assert newname, "must provide a new name if not replacing existing column."
         df[newname] = binary_indicator
@@ -102,9 +102,9 @@ def minmax_scale_numeric_columns(df: pd.DataFrame, columns: list):
         col_max = df[column].max()
         col_min = df[column].min()
         if col_max == col_min:  # case: no scaling needed; just center
-            df[column] = df[column] - col_min
+            df.loc[:, column] = df[column] - col_min
         else:  # case: normal case; center and scale
-            df[column] = (df[column] - col_min) / col_max
+            df.loc[:, column] = (df[column] - col_min) / col_max
     return df
 
 
@@ -114,5 +114,5 @@ def generate_missing_value_indicator(df: pd.DataFrame, columns: list, fill_value
         if not is_object_dtype(df[column]):
             print("skipping non-object column {}".format(column))
         else:
-            df[column] = df[column].fillna(fill_value)
+            df.loc[:, column] = df[column].fillna(fill_value)
     return df
