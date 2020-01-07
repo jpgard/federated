@@ -4,8 +4,8 @@ Train a FedEd model.
 Usage (note the use of quites surrounding the wildcard path):
 
 python train.py \
-    --data_fp "./data/larc-split/train/train/train_4*.csv" \
-    --epochs 20 \
+    --data_fp "./data/larc-split/train/train/train_4[1-5].csv" \
+    --epochs 2 \
     --batch_size 512 \
     --batches_to_take 128 \
     --num_train_clients 16 \
@@ -14,6 +14,7 @@ python train.py \
 
 """
 import argparse
+import os
 import six
 import tensorflow as tf
 
@@ -121,6 +122,7 @@ def execute_federated_training(dataset, logdir: str, training_config: TrainingCo
 
 def execute_centralized_training(dataset, logdir: str, training_config: TrainingConfig,
                                  model_config: ModelConfig):
+    """Execute a complete run of centralized training."""
     target_feature = DEFAULT_LARC_TARGET_COLNAME
     centralized_dataset = dataset.create_tf_dataset(training_config)
     feature_layer = dataset.make_feature_layer()
@@ -154,9 +156,13 @@ def main(data_fp: str, logdir: str, training_config: TrainingConfig,
     dataset = LarcDataset()
     dataset.read_data(data_fp)
     if train_federated:
-        execute_federated_training(dataset, logdir, training_config, model_config)
+        federated_logdir = os.path.join(logdir, "federated")
+        execute_federated_training(dataset, federated_logdir, training_config,
+                                   model_config)
     if train_centralized:
-        execute_centralized_training(dataset, logdir, training_config, model_config)
+        centralized_logdir = os.path.join(logdir, "centralized")
+        execute_centralized_training(dataset, centralized_logdir, training_config,
+                                     model_config)
 
 
 if __name__ == "__main__":

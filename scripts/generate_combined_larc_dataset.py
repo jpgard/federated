@@ -3,31 +3,26 @@ Read the individual LARC tables and join them into a single student-term-course 
 
 Example usage:
 
-# mock LARC dataset
-python scripts/generate_combined_larc_dataset.py \
-    --prsn_identifying_info_fp data/larc-mock/PRSN_IDNTFYNG_INFO.csv \
-    --stdnt_info_fp data/larc-mock/STDNT_INFO.csv \
-    --stdnt_term_class_info_fp data/larc-mock/STDNT_TERM_CLASS_INFO.csv \
-    --stdnt_term_info_fp data/larc-mock/STDNT_TERM_INFO.csv \
-    --stdnt_term_trnsfr_info_fp data/larc-mock/STDNT_TERM_TRNSFR_INFO.csv \
-    --outdir data/larc-mock/
-
 # full LARC dataset (excluding transfer table)
 python scripts/generate_combined_larc_dataset.py \
-    --stdnt_info_fp data/LARC/LARC_20190924_STDNT_INFO.csv \
-    --stdnt_term_class_info_fp data/LARC/LARC_20190924_STDNT_TERM_CLASS_INFO.csv \
-    --stdnt_term_info_fp data/LARC/LARC_20190924_STDNT_TERM_INFO.csv \
+    --stdnt_info_fp data/LARC/LARC_20190924_STDNT_INFO.csv.bz2 \
+    --stdnt_term_class_info_fp data/LARC/LARC_20190924_STDNT_TERM_CLASS_INFO.csv.bz2 \
+    --stdnt_term_info_fp data/LARC/LARC_20190924_STDNT_TERM_INFO.csv.bz2 \
     --outdir data/larc-split/ \
     --generate_ttv
+
 """
 
-import pandas as pd
 import argparse
+import bz2
+import numpy as np
 import os
 import os.path as osp
+from typing import Optional
 
+import pandas as pd
 
-TERM_CDS = {
+TEST_VAL_TERM_CDS = {
     # the term codes to use for the validation dataset; should be the second-to-last full
     # academic year in the dataset
     "val": [
@@ -43,13 +38,34 @@ TERM_CDS = {
 }
 
 
+def read_csv_from_bz2(fp, index_cols: list, **read_csv_args):
+    print("[INFO] reading {}".format(fp))
+    with bz2.open(fp) as file:
+        df = pd.read_csv(file, **read_csv_args).rename(
+            columns={"#SNPSHT_RPT_DT": "SNPSHT_RPT_DT"}) \
+            .set_index(index_cols)
+    return df
+
+
+def check_single_snapshot(df: pd.DataFrame, drop=True):
+    """Verify that there is only one database snapshot represented in the df.
+
+    If this check fails, SNPSHT_RPT_DT should be added as an index for proper joining.
+    """
+    if "SNPSHT_RPT_DT" in df.columns:
+        assert df["SNPSHT_RPT_DT"].nunique() == 1
+        if drop:
+            df.drop(columns="SNPSHT_RPT_DT", inplace=True)
+
+
 def main(stdnt_info_fp,
          stdnt_term_class_info_fp,
          stdnt_term_info_fp,
          outdir,
          prsn_identifying_info_fp=None,
          stdnt_term_trnsfr_info_fp=None,
-         generate_ttv=False
+         generate_ttv=False,
+         n_train: Optional[int] = None
          ):
     """
     Generate a combined dataset by merging the CSV files along the correct indices.
@@ -59,7 +75,8 @@ def main(stdnt_info_fp,
     :param outdir:
     :param prsn_identifying_info_fp:
     :param stdnt_term_trnsfr_info_fp:
-    :param generate_ttv: boolean indicator for whether to generate train-test split.
+    :param generate_ttv: boolean indicator for whether to generate train-test-val split.
+    :param n_train: number of CSVs to divide training data among.
     :return:
     """
 
@@ -70,40 +87,42 @@ def main(stdnt_info_fp,
         "dtype": "object",
     }
 
-    print("[INFO] reading {}".format(stdnt_info_fp))
-    stdnt_info = pd.read_csv(stdnt_info_fp,
-                             index_col=("SNPSHT_RPT_DT", "STDNT_ID"),
-                             **read_csv_args)
-    print("[INFO] reading {}".format(stdnt_term_class_info_fp))
-    stdnt_term_class_info = pd.read_csv(stdnt_term_class_info_fp,
-                                        index_col=("SNPSHT_RPT_DT", "TERM_CD",
-                                                   "STDNT_ID", "CLASS_NBR"),
-                                        **read_csv_args)
-    # drop the duplicated column
-    print("[INFO] reading {}".format(stdnt_term_info_fp))
-    stdnt_term_info = pd.read_csv(stdnt_term_info_fp,
-                                  index_col=("SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID"),
-                                  **read_csv_args).drop(columns="TERM_SHORT_DES")
+    stdnt_info = read_csv_from_bz2(
+        stdnt_info_fp, index_cols=["SNPSHT_RPT_DT", "STDNT_ID"], **read_csv_args)
+    stdnt_term_class_info = read_csv_from_bz2(
+        stdnt_term_class_info_fp,
+        index_cols=["SNPSHT_RPT_DT", "STDNT_ID", "TERM_CD", "CLASS_NBR"],
+        **read_csv_args)
+    # drop the duplicated and redundant column when reading stdnt_term_info
+    stdnt_term_info = read_csv_from_bz2(
+        stdnt_term_info_fp,
+        index_cols=["SNPSHT_RPT_DT", "STDNT_ID", "TERM_CD"],
+        **read_csv_args).drop(columns="TERM_SHORT_DES")
+
+    # for df in (stdnt_info, stdnt_term_class_info, stdnt_term_info):
+    #     check_single_snapshot(df)
 
     # we want a student-term-class level dataset; join the other data onto this df
+    print("[INFO] joining datasets")
     larc = stdnt_term_class_info \
-        .join(stdnt_term_info, how="left", on=("SNPSHT_RPT_DT", "STDNT_ID", "TERM_CD")) \
-        .join(stdnt_info, how="left", on=("SNPSHT_RPT_DT", "STDNT_ID"))
+        .join(stdnt_term_info, how="inner", on=("SNPSHT_RPT_DT", "STDNT_ID", "TERM_CD")) \
+        .join(stdnt_info, how="inner", on=("SNPSHT_RPT_DT", "STDNT_ID"))
     if prsn_identifying_info_fp:
         print("[INFO] reading {}".format(prsn_identifying_info_fp))
         # for this table, we rename column PRSN_ID before setting the index
-        prsn_identifying_info = pd.read_csv(
-            prsn_identifying_info_fp, index_col=["SNPSHT_RPT_DT", "STDNT_ID"],
+        prsn_identifying_info = read_csv_from_bz2(
+            prsn_identifying_info_fp, index_cols=["SNPSHT_RPT_DT", "STDNT_ID"],
             **read_csv_args).rename(
             columns={"PRSN_ID": "STDNT_ID"}) \
             .astype({"STDNT_ID": "int64"})
 
-        larc = larc.join(prsn_identifying_info, how="left", on=("SNPSHT_RPT_DT",
-                                                                "STDNT_ID"))
+        larc = larc.join(prsn_identifying_info, how="left",
+                         on=("SNPSHT_RPT_DT", "STDNT_ID"))
     if stdnt_term_trnsfr_info_fp:
         print("[ERROR] transfer data join not implemented")
         raise NotImplementedError
     larc.reset_index(inplace=True)
+
     # ensure no data is lost or duplicated in joins
     assert len(larc) == len(stdnt_term_class_info)
     if not generate_ttv:  # write the entire dataset
@@ -114,19 +133,28 @@ def main(stdnt_info_fp,
         # cutoff_term_cd is the first val/test term; no training data should be taken
         # from any temporal period after this term, even if it is not one of the
         # specified val/test terms.
+        cutoff_term_cd = min([int(t) for key in TEST_VAL_TERM_CDS.values() for t in key])
 
-        cutoff_term_cd = min([int(t) for key in TERM_CDS.values() for t in key])
         for mode in ("train", "test", "val"):  # create the directories
             mode_out_dir = osp.join(outdir, mode)
-            mode_out_fp = osp.join(mode_out_dir, mode + ".csv")
             if not osp.exists(mode_out_dir):
                 os.mkdir(mode_out_dir)
             if mode == "train":
-                # filter the data using cutoff_term_cd
-                larc[larc["TERM_CD"].astype(int) < cutoff_term_cd]\
-                    .to_csv(mode_out_fp, index=False)
+                # Filter the data using cutoff_term_cd
+                train_df = larc[larc["TERM_CD"].astype(int) < cutoff_term_cd]
+                # Shuffle the training data in place and reset the index
+                train_df = train_df.sample(frac=1, random_state=47895).reset_index(
+                    drop=True)
+                # Write the results to separate training files
+                for i in range(n_train):
+                    mode_out_fp = osp.join(mode_out_dir, "train_{}.csv".format(i))
+                    print("[INFO] writing to {}".format(mode_out_fp))
+                    train_df[np.arange(len(train_df)) % n_train == 0]\
+                        .to_csv(mode_out_fp, index=False)
             else:  # mode is val or test; write that data
-                larc[larc["TERM_CD"].isin(TERM_CDS[mode])]\
+                mode_out_fp = osp.join(mode_out_dir, mode + ".csv")
+                print("[INFO] writing to {}".format(mode_out_fp))
+                larc[larc["TERM_CD"].isin(TEST_VAL_TERM_CDS[mode])] \
                     .to_csv(mode_out_fp, index=False)
 
 
@@ -141,5 +169,7 @@ if __name__ == "__main__":
                         required=False)  # currently unused
     parser.add_argument("--outdir", help="directory to write dataset to")
     parser.add_argument("--generate_ttv", action="store_true", default=False)
+    parser.add_argument("--n_train", help="number of training csvs to generate",
+                        type=int, default=100)
     args = parser.parse_args()
     main(**vars(args))
