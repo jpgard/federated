@@ -89,15 +89,15 @@ def main(stdnt_info_fp,
     }
 
     stdnt_info = read_csv_from_bz2(
-        stdnt_info_fp, index_cols=["SNPSHT_RPT_DT", "STDNT_ID", ], **read_csv_args)
+        stdnt_info_fp, index_cols=["SNPSHT_RPT_DT", "STDNT_ID"], **read_csv_args)
     stdnt_term_class_info = read_csv_from_bz2(
         stdnt_term_class_info_fp,
-        index_cols=["SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID", "CLASS_NBR"],
+        index_cols=["SNPSHT_RPT_DT", "STDNT_ID", "TERM_CD", "CLASS_NBR"],
         **read_csv_args)
     # drop the duplicated and redundant column when reading stdnt_term_info
     stdnt_term_info = read_csv_from_bz2(
         stdnt_term_info_fp,
-        index_cols=["SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID"],
+        index_cols=["SNPSHT_RPT_DT", "STDNT_ID", "TERM_CD"],
         **read_csv_args).drop(columns="TERM_SHORT_DES")
 
     # for df in (stdnt_info, stdnt_term_class_info, stdnt_term_info):
@@ -107,8 +107,7 @@ def main(stdnt_info_fp,
     print("[INFO] joining datasets")
     larc = stdnt_term_class_info \
         .join(stdnt_term_info, how="inner", on=("SNPSHT_RPT_DT", "STDNT_ID", "TERM_CD")) \
-        .join(stdnt_info, how="inner", on=("SNPSHT_RPT_DT", "STDNT_ID",))
-    import ipdb;ipdb.set_trace()
+        .join(stdnt_info, how="inner", on=("SNPSHT_RPT_DT", "STDNT_ID"))
     if prsn_identifying_info_fp:
         print("[INFO] reading {}".format(prsn_identifying_info_fp))
         # for this table, we rename column PRSN_ID before setting the index
