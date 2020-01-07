@@ -69,8 +69,7 @@ DEFAULT_LARC_NUMERIC_FEATURES = [  # numeric and binary features
     "CMBN_CLASS_ENRL_TOTAL_NBR",  # Combined Class Enrollment Total Number
     # "EXCL_CLASS_CUM_GPA",
     "HS_GPA",  # High School Grade Point Average
-    # TODO(jpgard): PREV_TERM_CUM_GPA should be included as a feature!
-    # "PREV_TERM_CUM_GPA",  # Previous Term Cumulative Grade Point Average
+    "PREV_TERM_CUM_GPA",  # Previous Term Cumulative Grade Point Average
     # "STDNT_BIRTH_YR",  # Student Birth Year TODO(jpgard): take (birth year - term year)
     # to obtain an additional feature for approximate age
     "TERM_CD",  # Term Code
