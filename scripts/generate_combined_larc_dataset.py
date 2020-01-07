@@ -42,7 +42,7 @@ def read_csv_from_bz2(fp, index_cols: list, **read_csv_args):
     with bz2.open(fp) as file:
         df = pd.read_csv(file, **read_csv_args).rename(
             columns={"#SNPSHT_RPT_DT": "SNPSHT_RPT_DT"})\
-            .set_index(index_cols, inplace=True)
+            .set_index(index_cols)
     return df
 
 
