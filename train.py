@@ -4,13 +4,14 @@ Train a FedEd model.
 Usage (note the use of quites surrounding the wildcard path):
 
 python train.py \
-    --data_fp "./data/larc-split/train/train/train_4[1-5].csv" \
+    --data_fp "./data/larc-split/train/train_[0-1].csv" \
     --epochs 2 \
     --batch_size 512 \
     --batches_to_take 128 \
     --num_train_clients 16 \
     --train_federated \
-    --train_centralized
+    --train_centralized \
+    --train_localized
 
 """
 import argparse
