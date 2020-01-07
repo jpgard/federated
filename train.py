@@ -20,6 +20,7 @@ import six
 from typing import Optional
 
 import tensorflow as tf
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR) # suppress deprecation warn
 import tensorflow_federated as tff
 
 # NOTE: If the statement below fails, it means that you are
@@ -175,7 +176,6 @@ def main(data_fp: str, logdir: str, training_config: TrainingConfig,
             client_logdir = os.path.join(logdir, client_id)
             execute_centralized_training(client_dataset, client_logdir,
                                          training_config, model_config)
-            import ipdb;ipdb.set_trace()
 
 
 if __name__ == "__main__":
