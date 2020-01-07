@@ -85,7 +85,7 @@ def main(stdnt_info_fp,
         "na_values": ('', ' '),
         "keep_default_na": True,
         "dtype": "object",
-        "nrows": 100000,  # TODO(jpgard): remove this after debugging
+        # "nrows": 10**,  # TODO(jpgard): remove this after debugging
     }
 
     stdnt_info = read_csv_from_bz2(
@@ -106,8 +106,9 @@ def main(stdnt_info_fp,
     # we want a student-term-class level dataset; join the other data onto this df
     print("[INFO] joining datasets")
     larc = stdnt_term_class_info \
-        .join(stdnt_term_info, how="left", on=("SNPSHT_RPT_DT", "STDNT_ID", "TERM_CD")) \
-        .join(stdnt_info, how="left", on=("SNPSHT_RPT_DT", "STDNT_ID",))
+        .join(stdnt_term_info, how="inner", on=("SNPSHT_RPT_DT", "STDNT_ID", "TERM_CD")) \
+        .join(stdnt_info, how="inner", on=("SNPSHT_RPT_DT", "STDNT_ID",))
+    import ipdb;ipdb.set_trace()
     if prsn_identifying_info_fp:
         print("[INFO] reading {}".format(prsn_identifying_info_fp))
         # for this table, we rename column PRSN_ID before setting the index
