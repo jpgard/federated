@@ -39,8 +39,9 @@ TEST_VAL_TERM_CDS = {
 def read_csv_from_bz2(fp, index_cols, **read_csv_args):
     print("[INFO] reading {}".format(fp))
     with bz2.open(fp) as file:
-        df = pd.read_csv(file, index_col=index_cols, **read_csv_args).rename(
-            columns={"#SNPSHT_RPT_DT": "SNPSHT_RPT_DT"})
+        df = pd.read_csv(file, **read_csv_args).rename(
+            columns={"#SNPSHT_RPT_DT": "SNPSHT_RPT_DT"})\
+            .set_index(index_cols, inplace=True)
     return df
 
 
@@ -82,38 +83,40 @@ def main(stdnt_info_fp,
         "na_values": ('', ' '),
         "keep_default_na": True,
         "dtype": "object",
+        "nrows": 100000,  # TODO(jpgard): remove this after debugging
     }
 
     stdnt_info = read_csv_from_bz2(
-        stdnt_info_fp, index_cols=("#SNPSHT_RPT_DT", "STDNT_ID",), **read_csv_args)
+        stdnt_info_fp, index_cols=("SNPSHT_RPT_DT", "STDNT_ID",), **read_csv_args)
     stdnt_term_class_info = read_csv_from_bz2(
         stdnt_term_class_info_fp,
-        index_cols=("#SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID", "CLASS_NBR"),
+        index_cols=("SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID", "CLASS_NBR"),
         **read_csv_args)
     # drop the duplicated and redundant column when reading stdnt_term_info
     stdnt_term_info = read_csv_from_bz2(
         stdnt_term_info_fp,
-        index_cols=("#SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID"),
+        index_cols=("SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID"),
         **read_csv_args).drop(columns="TERM_SHORT_DES")
 
-    for df in (stdnt_info, stdnt_term_class_info, stdnt_term_info):
-        check_single_snapshot(df)
+    # for df in (stdnt_info, stdnt_term_class_info, stdnt_term_info):
+    #     check_single_snapshot(df)
 
     # we want a student-term-class level dataset; join the other data onto this df
     print("[INFO] joining datasets")
     larc = stdnt_term_class_info \
-        .join(stdnt_term_info, how="left", on=("STDNT_ID", "TERM_CD")) \
-        .join(stdnt_info, how="left", on=("STDNT_ID",))
+        .join(stdnt_term_info, how="left", on=("SNPSHT_RPT_DT", "STDNT_ID", "TERM_CD")) \
+        .join(stdnt_info, how="left", on=("SNPSHT_RPT_DT", "STDNT_ID",))
     if prsn_identifying_info_fp:
         print("[INFO] reading {}".format(prsn_identifying_info_fp))
         # for this table, we rename column PRSN_ID before setting the index
         prsn_identifying_info = pd.read_csv(
-            prsn_identifying_info_fp, index_col=["STDNT_ID", ],
+            prsn_identifying_info_fp, index_col=["SNPSHT_RPT_DT", "STDNT_ID"],
             **read_csv_args).rename(
             columns={"PRSN_ID": "STDNT_ID"}) \
             .astype({"STDNT_ID": "int64"})
 
-        larc = larc.join(prsn_identifying_info, how="left", on=("STDNT_ID",))
+        larc = larc.join(prsn_identifying_info, how="left",
+                         on=("SNPSHT_RPT_DT", "STDNT_ID"))
     if stdnt_term_trnsfr_info_fp:
         print("[ERROR] transfer data join not implemented")
         raise NotImplementedError
