@@ -85,7 +85,6 @@ def main(stdnt_info_fp,
         "na_values": ('', ' '),
         "keep_default_na": True,
         "dtype": "object",
-        # "nrows": 10**,  # TODO(jpgard): remove this after debugging
     }
 
     stdnt_info = read_csv_from_bz2(
