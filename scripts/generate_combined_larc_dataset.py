@@ -18,6 +18,7 @@ import bz2
 import numpy as np
 import os
 import os.path as osp
+from typing import Optional
 
 import pandas as pd
 
@@ -41,7 +42,7 @@ def read_csv_from_bz2(fp, index_cols: list, **read_csv_args):
     print("[INFO] reading {}".format(fp))
     with bz2.open(fp) as file:
         df = pd.read_csv(file, **read_csv_args).rename(
-            columns={"#SNPSHT_RPT_DT": "SNPSHT_RPT_DT"})\
+            columns={"#SNPSHT_RPT_DT": "SNPSHT_RPT_DT"}) \
             .set_index(index_cols)
     return df
 
@@ -64,7 +65,7 @@ def main(stdnt_info_fp,
          prsn_identifying_info_fp=None,
          stdnt_term_trnsfr_info_fp=None,
          generate_ttv=False,
-         n_train=100
+         n_train: Optional[int] = None
          ):
     """
     Generate a combined dataset by merging the CSV files along the correct indices.
@@ -88,7 +89,7 @@ def main(stdnt_info_fp,
     }
 
     stdnt_info = read_csv_from_bz2(
-        stdnt_info_fp, index_cols=["SNPSHT_RPT_DT", "STDNT_ID",], **read_csv_args)
+        stdnt_info_fp, index_cols=["SNPSHT_RPT_DT", "STDNT_ID", ], **read_csv_args)
     stdnt_term_class_info = read_csv_from_bz2(
         stdnt_term_class_info_fp,
         index_cols=["SNPSHT_RPT_DT", "TERM_CD", "STDNT_ID", "CLASS_NBR"],
@@ -149,8 +150,8 @@ def main(stdnt_info_fp,
                 for i in range(n_train):
                     mode_out_fp = osp.join(mode_out_dir, "train_{}.csv".format(i))
                     print("[INFO] writing to {}".format(mode_out_fp))
-                    train_df[np.arange(len(train_df)) % n_train == 0].to_csv(mode_out_fp,
-                                                                             index=False)
+                    train_df[np.arange(len(train_df)) % n_train == 0]\
+                        .to_csv(mode_out_fp, index=False)
             else:  # mode is val or test; write that data
                 mode_out_fp = osp.join(mode_out_dir, mode + ".csv")
                 print("[INFO] writing to {}".format(mode_out_fp))
@@ -170,6 +171,6 @@ if __name__ == "__main__":
     parser.add_argument("--outdir", help="directory to write dataset to")
     parser.add_argument("--generate_ttv", action="store_true", default=False)
     parser.add_argument("--n_train", help="number of training csvs to generate",
-                        type=int)
+                        type=int, default=100)
     args = parser.parse_args()
     main(**vars(args))
