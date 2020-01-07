@@ -7,6 +7,7 @@ from typing import Optional, List
 
 from feded.training import TrainingConfig
 import tensorflow as tf
+import pandas as pd
 
 
 def get_dataset_size(dataset: tf.data.Dataset):
@@ -28,6 +29,29 @@ class TabularDataset(ABC):
         self.embedding_columns = embedding_columns
         self.numeric_columns = numeric_columns
         self.target_column = target_column
+
+    def filter(self, filter_spec: dict, in_place=False):
+        """
+        Filter self.df according to filter_spec.
+
+        :param filter_spec: a dictionary with format {colname: [valid_values, ...]}
+        :param in_place: if true, set the result to self.df; if false, return a copy
+            of self.df with the filtering applied.
+        :return: pd.DataFrame (if in_place=False), else None and self.df is modified.
+        """
+        def _filter_op(df, col, vals):
+            return df[df[col].isin(vals)]
+        if not in_place:
+            df = self.df.copy(deep=True)
+        for colname, valid_values in filter_spec.items():
+            if not in_place:
+                df = _filter_op(df, colname, valid_values)
+            else:
+                self.df = _filter_op(self.df, colname, valid_values)
+
+    def from_df(self, df: pd.DataFrame):
+        self.df = df
+
 
     @property
     def feature_column_names(self):
