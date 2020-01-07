@@ -16,8 +16,9 @@ python train.py \
 import argparse
 import os
 import six
-import tensorflow as tf
+from typing import Optional
 
+import tensorflow as tf
 import tensorflow_federated as tff
 
 # NOTE: If the statement below fails, it means that you are
@@ -151,7 +152,8 @@ def execute_centralized_training(dataset, logdir: str, training_config: Training
 
 
 def main(data_fp: str, logdir: str, training_config: TrainingConfig,
-         model_config: ModelConfig, train_federated: True, train_centralized: True):
+         model_config: ModelConfig, train_federated: True, train_centralized: True,
+         train_localized: True, local_client_ids: Optional[list] = None):
     # fetch and preprocess the data, and construct federated datasets
     dataset = LarcDataset()
     dataset.read_data(data_fp)
@@ -163,6 +165,16 @@ def main(data_fp: str, logdir: str, training_config: TrainingConfig,
         centralized_logdir = os.path.join(logdir, "centralized")
         execute_centralized_training(dataset, centralized_logdir, training_config,
                                      model_config)
+    if train_localized:
+        for client_id in local_client_ids:
+            filter_spec = {dataset.client_id_col: [client_id,]}
+            client_df = dataset.filter(filter_spec, in_place=False)
+            client_dataset = LarcDataset()
+            client_dataset.from_df(client_df)
+            client_logdir = os.path.join(logdir, client_id)
+            execute_centralized_training(client_dataset, client_logdir,
+                                         training_config, model_config)
+            import ipdb;ipdb.set_trace()
 
 
 if __name__ == "__main__":
@@ -188,6 +200,15 @@ if __name__ == "__main__":
                         help="indicator for whether to train a federated model")
     parser.add_argument("--train_centralized", action="store_true", default=False,
                         help="indicator for whether to train a centralized model")
+    parser.add_argument("--train_localized", action="store_true", default=False,
+                        help="indicator for whether to train localized model")
+    parser.add_argument("--local_client_ids",
+                        help="client ids to evaluate if localized training is used",
+                        nargs="+",
+                        default=["CHEM", "ECON", "BIOLOGY", "STATS", "PSYCH", "MATH",
+                                 "SOC", "HISTORY", "COMM", "EECS", "ENGLISH",
+                                 "PHYSICS", "SPANISH", "POLSCI", "EARTH"])
+
     args = parser.parse_args()
     training_config = TrainingConfig(batch_size=args.batch_size, epochs=args.epochs,
                                      shuffle_buffer=args.shuffle_buffer,
@@ -195,4 +216,4 @@ if __name__ == "__main__":
                                      batches_to_take=args.batches_to_take)
     model_config = ModelConfig(learning_rate=args.lr)
     main(args.data_fp, args.logdir, training_config, model_config, args.train_federated,
-         args.train_centralized)
+         args.train_centralized, args.train_localized, args.local_client_ids)
