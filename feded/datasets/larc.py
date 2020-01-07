@@ -10,6 +10,7 @@ from feded.datasets import TabularDataset
 from feded.preprocessing import read_csv, filter_df_by_values, \
     make_binary_indicator_column, generate_categorical_feature_dict, \
     minmax_scale_numeric_columns, generate_missing_value_indicator
+from feded.util.debug import print_missing_summary
 
 # the prediction target
 DEFAULT_LARC_TARGET_COLNAME = "CRSE_GRD_OFFCL_CD"
@@ -142,8 +143,7 @@ class LarcDataset(TabularDataset):
         print(df[self.target_column].value_counts())
 
         df = generate_missing_value_indicator(df, self.categorical_columns)
-        print("[INFO] null counts after creating indicator for categorical columns:")
-        print(df.isnull().sum(axis=0))
+        print_missing_summary(df, nonzero_only=True)
         df.dropna(inplace=True)
         print("[INFO] dataset rows after dropping NAs: {}".format(df.shape[0]))
         df = minmax_scale_numeric_columns(df, self.numeric_columns)
