@@ -2,8 +2,15 @@ import tensorflow as tf
 
 
 class ModelConfig:
-    def __init__(self, learning_rate):
+    def __init__(self, learning_rate: float, loss):
+        """
+        A set of configurations to represent a unique model.
+
+        :param learning_rate: learning rate.
+        :param loss: callable to be used as the loss function for the model.
+        """
         self.learning_rate = learning_rate
+        self.loss = loss
 
 # create a simple keras model
 def create_compiled_keras_model(input_shape, model_config: ModelConfig):
@@ -18,7 +25,7 @@ def create_compiled_keras_model(input_shape, model_config: ModelConfig):
     ])
     # compile the model
     model.compile(
-        loss=tf.keras.losses.BinaryCrossentropy(),
+        loss=model_config.loss(),
         optimizer=tf.keras.optimizers.SGD(learning_rate=model_config.learning_rate),
         metrics=[
             tf.keras.metrics.BinaryCrossentropy(),

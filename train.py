@@ -11,7 +11,8 @@ python train.py \
     --num_train_clients 16 \
     --train_federated \
     --train_centralized \
-    --train_localized
+    --train_localized \
+    --loss_fn feded.training.loss.ClassBalancedBinaryCrossEntropy
 
 """
 import argparse
@@ -31,6 +32,7 @@ if six.PY3:
     tff.framework.set_default_executor(
         tff.framework.create_local_executor())
 
+import feded.training.loss  # required if loss function from feded module is used
 from feded.preprocessing import preprocess
 from feded.datasets import get_dataset_size
 from feded.datasets.larc import LarcDataset, DEFAULT_LARC_TARGET_COLNAME
@@ -209,12 +211,16 @@ if __name__ == "__main__":
                         default=["CHEM", "ECON", "BIOLOGY", "STATS", "PSYCH", "MATH",
                                  "SOC", "HISTORY", "COMM", "EECS", "ENGLISH",
                                  "PHYSICS", "SPANISH", "POLSCI", "EARTH"])
+    parser.add_argument("--loss_fn",
+                        help="string identifier for the loss function to use",
+                        default="tf.keras.losses.BinaryCrossentropy")
 
     args = parser.parse_args()
     training_config = TrainingConfig(batch_size=args.batch_size, epochs=args.epochs,
                                      shuffle_buffer=args.shuffle_buffer,
                                      num_train_clients=args.num_train_clients,
                                      batches_to_take=args.batches_to_take)
-    model_config = ModelConfig(learning_rate=args.lr)
+    model_config = ModelConfig(learning_rate=args.lr,
+                               loss=eval(args.loss_fn))
     main(args.data_fp, args.logdir, training_config, model_config, args.train_federated,
          args.train_centralized, args.train_localized, args.local_client_ids)
